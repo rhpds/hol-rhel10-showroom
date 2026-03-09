@@ -1,0 +1,393 @@
+
+= *Container Management* (podman)
+
+[discrete]
+== *Skill Level: Fundamental* icon:check[]
+
+
+
+
+== Overview
+
+Podman (the POD manager) is a tool for developing, managing, and running containers on your Linux systems.
+
+In this unit, we will get familiar with application containers and the podman CLI.  
+
+== Getting Started
+
+For these exercises, you will be using the host `node3` as user `root`.
+
+From host `bastion`, ssh to `node3`.
+
+[{format_cmd}]
+----
+ssh node3
+----
+
+Use `sudo` to elevate your privileges.
+
+[{format_cmd}]
+----
+[[ "$UID" == 0 ]] || sudo -i
+----
+
+Verify that you are on the right host for these exercises.
+
+[{format_cmd}]
+----
+workshop-podman-checkhost.sh
+----
+
+You are now ready to proceed with these exercises.
+
+== Core Concepts
+
+
+Linux containers are technologies (plural) that allow you to package and isolate applications as lightweight, portable entities. When compared to a traditional virtual machine (as containers often are), Linux containers:
+
+
+  * improve resource utlitization over virtual machines
+  * improve performance over virtual machines
+  * improve flexibilty over virtual machines
+
+Because container images include only the content needed to run an application, a container is more efficient and 
+requires fewer resources to run.  Likewise, since the container is not running the entirety of a complete operating system,
+it will typically run faster than an application that carries with it the overhead of a whole new virtual 
+machine.  Lastly, with an application’s run time requirements included in the image itself, a container is 
+far more capable of being run in multiple environments (without modification).
+
+That said, let's begin to explore the capabilities of podman.
+
+=== Essential Container Commands
+
+Here is a list of the fundamental podman commands and their purpose:
+
+  * *podman images* - list container images on the system
+  * *podman ps* - list running containers
+  * *podman pull* - pull (copy) container image from repository (ie: redhat and/or docker hub)
+  * *podman run* - run a container
+  * *podman inspect* - view facts about a container
+  * *podman logs* - display logs of a container (can be used with --follow)
+  * *podman rm* - remove one or more containers
+  * *podman rmi* - remove one or more images
+  * *podman stop* - stop one or more containers
+  * *podman kill $(podman ps -q)* - kill all running containers
+  * *podman rm $(podman ps -a -q)* - delete all stopped containers
+
+== Exercise: Basic Information
+
+Now have a look at the general container information.
+
+[{format_cmd}]
+----
+podman info
+----
+
+[{format_output}]
+----
+host:
+  arch: amd64
+  buildahVersion: 1.39.4
+  cgroupControllers:
+  - cpuset
+  - cpu
+  - io
+  - memory
+  - hugetlb
+  - pids
+  - rdma
+  - misc
+  cgroupManager: systemd
+  cgroupVersion: v2
+  conmon:
+...<output truncated>...
+----
+
+There is obviously a lot of information here, but we are just trying to point out
+how to get to that info when you need it.
+
+
+
+== Exercise: Container Image Management
+
+=== List Current Images
+
+Now have a look at the general container information.
+
+[{format_cmd}]
+----
+podman images
+----
+
+Your results should have come back empty and that's because we have not imported, loaded or pulled any containers on to our platform.  
+
+
+
+=== Pull New Images
+
+Time to pull a container from our local repository.  We're going to start with a RHEL 10 UBI image (see UBI documentation link at the end of this exercise).
+
+[{format_cmd}]
+----
+podman pull registry.access.redhat.com/ubi10/ubi:latest
+----
+
+[{format_output}]
+----
+Trying to pull registry.access.redhat.com/ubi10/ubi:latest...
+Getting image source signatures
+Checking if image destination supports signatures
+Copying blob 7fdd59f6557b done   | 
+Copying config da862ffa17 done   | 
+Writing manifest to image destination
+Storing signatures
+da862ffa17875f5980832d6d8cd545f75e7cf3175a710b6529d7f7fc5fd650d1
+----
+
+Have a look at the image list now.
+
+[{format_cmd}]
+----
+podman images
+----
+
+[{format_output}]
+----
+REPOSITORY                            TAG         IMAGE ID      CREATED     SIZE
+registry.access.redhat.com/ubi10/ubi  latest      da862ffa1787  2 days ago  216 MB
+----
+
+NOTE: If you are a subscriber to Red Hat Enterprise Linux, you can pull authentic Red Hat certified images directly from Red Hat's repository.  For example: `podman pull rhel7.9 --creds 'username:password'`
+
+Pull a few more container images.
+
+[{format_cmd}]
+----
+podman pull registry.access.redhat.com/ubi10/ubi-minimal
+podman pull registry.access.redhat.com/ubi10/ubi-init
+----
+
+[{format_cmd}]
+----
+podman images
+----
+
+[{format_output}]
+----
+REPOSITORY                                    TAG         IMAGE ID      CREATED       SIZE
+registry.access.redhat.com/ubi10/ubi-init     latest      7f2cd7fb740c  37 hours ago  236 MB
+registry.access.redhat.com/ubi10/ubi          latest      da862ffa1787  2 days ago    216 MB
+registry.access.redhat.com/ubi10/ubi-minimal  latest      94287c165ee4  2 days ago    85.3 MB
+----
+
+
+
+=== Tag Images
+
+Container images can also be tagged with convenient (ie: custom) names.  This could make it more intuitive to understand what they 
+contain, especially after an image has been customized.
+
+[{format_cmd}]
+----
+podman tag registry.access.redhat.com/ubi10/ubi myfavorite
+----
+
+[{format_cmd}]
+----
+podman images
+----
+
+[{format_output}]
+----
+REPOSITORY                                    TAG         IMAGE ID      CREATED       SIZE
+registry.access.redhat.com/ubi10/ubi-init     latest      7f2cd7fb740c  37 hours ago  236 MB
+localhost/myfavorite                          latest      da862ffa1787  2 days ago    216 MB
+registry.access.redhat.com/ubi10/ubi          latest      da862ffa1787  2 days ago    216 MB
+registry.access.redhat.com/ubi10/ubi-minimal  latest      94287c165ee4  2 days ago    85.3 MB
+----
+
+Notice how the image-id for "ubi" and "myfavorite" are identical.
+
+NOTE: The https://catalog.redhat.com/en/search?searchType=containers[Red Hat Container Catalog] (RHCC) provides a convenient service to locate certified container images built and supported by Red Hat.  You can also view the "security evaluation" for each image.
+
+
+
+=== Delete Images
+
+Let's take another look at the images we have and remove one we don't need
+
+[{format_cmd}]
+----
+podman images
+----
+
+[{format_cmd}]
+----
+podman rmi ubi-init
+----
+
+[{format_cmd}]
+----
+podman images
+----
+
+[{format_output}]
+----
+REPOSITORY                                    TAG         IMAGE ID      CREATED     SIZE
+localhost/myfavorite                          latest      da862ffa1787  2 days ago  216 MB
+registry.access.redhat.com/ubi10/ubi          latest      da862ffa1787  2 days ago  216 MB
+registry.access.redhat.com/ubi10/ubi-minimal  latest      94287c165ee4  2 days ago  85.3 MB
+----
+
+
+
+== Exercise: Run a Container
+
+=== Hello World
+
+[{format_cmd}]
+----
+podman run ubi echo "hello world"
+----
+
+[{format_output}]
+----
+hello world
+----
+
+Well that was really boring!! What did we learn from this?  For starters, you should have noticed how fast the container launched and then concluded.  Compare that with traditional virtualization where:
+
+    * you power up, 
+    * wait for bios, 
+    * wait for grub, 
+    * wait for the kernel to boot and initialize resources,
+    * pivot root, 
+    * launch all the services, and then finally
+    * run the application
+
+Let us run a few more commands to see what else we can glean.
+
+[{format_cmd}]
+----
+podman ps -a
+----
+
+[{format_output}]
+----
+CONTAINER ID  IMAGE                                        COMMAND           CREATED         STATUS                     PORTS       NAMES
+ff41e34f372e  registry.access.redhat.com/ubi10/ubi:latest  echo hello world  14 seconds ago  Exited (0) 14 seconds ago              musing_heisenberg
+----
+
+Now let us run the exact same command as before to print "hello world".
+
+[{format_cmd}]
+----
+podman run ubi echo "hello world"
+----
+
+[{format_output}]
+----
+hello world
+----
+
+Check out 'podman info' one more time and you should notice a few changes.
+
+[{format_cmd}]
+----
+podman info
+----
+
+[{format_output}]
+----
+host:
+  arch: amd64
+  buildahVersion: 1.39.4
+  cgroupControllers:
+  - cpuset
+  - cpu
+  - io
+  - memory
+  - hugetlb
+  - pids
+  - rdma
+  - misc
+
+...<output truncated>...
+----
+
+Again, there is a lot of information here.  But if you dig into it, you should notice that 
+the number of containers (ContainerStore) has incremented to 2, and that the number of 
+stopped containers has also has grown.
+
+[{format_cmd}]
+----
+podman info |grep -A7 store:
+----
+
+[{format_output}]
+----
+store:
+  configFile: /usr/share/containers/storage.conf
+  containerStore:
+    number: 2
+    paused: 0
+    running: 0
+    stopped: 2
+  graphDriverName: overlay
+----
+
+=== Cleanup
+
+Run 'podman ps -a' to see the IDs of the exited containers.
+
+[{format_cmd}]
+----
+podman ps -a
+----
+
+[{format_output}]
+----
+CONTAINER ID  IMAGE                                        COMMAND           CREATED             STATUS                         PORTS       NAMES
+ff41e34f372e  registry.access.redhat.com/ubi10/ubi:latest  echo hello world  About a minute ago  Exited (0) About a minute ago              musing_heisenberg
+0871cf47b06c  registry.access.redhat.com/ubi10/ubi:latest  echo hello world  About a minute ago  Exited (0) About a minute ago              optimistic_cray
+----
+
+Using the container UIDs from the above output, you could clean up the 'exited' containers individually using `podman rm <CONTAINER-ID> <CONTAINER-ID>`, 
+but we are lazy and will cleanup up the containers with a single command:
+
+[{format_cmd}]
+----
+podman rm --all
+----
+
+Now run 'podman ps -a' again, and the results should come back empty.
+
+[{format_cmd}]
+----
+podman ps -a
+----
+
+
+=== Conclusion
+
+[{format_cmd}]
+----
+workshop-finish-exercise.sh
+----
+
+
+
+[discrete]
+== Additional Reference Materials
+
+    * link:https://www.redhat.com/en/blog/introducing-red-hat-universal-base-image[(Re)Introducing the Red Hat Universal Base Image - Scott McCarty]
+    * link:https://developers.redhat.com/cheat-sheets/podman-cheat-sheet[Podman Cheat Sheet - Bob Reselman]
+    * link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/building_running_and_managing_containers/index[Building, running, and managing containers]
+
+[discrete]
+== End of Unit
+
+////
+Always end files with a blank line to avoid include problems.
+////
+

@@ -1,0 +1,155 @@
+
+= *Storage Management* (stratis)
+
+[discrete]
+== *Skill Level: Intermediate* icon:check[]
+
+
+
+
+== Overview
+
+WARNING: These exercises build upon the exercises performed in the fundamental storage management unit.  It is necessary to complete those prior to attempting this unit.
+
+== Getting Started
+
+For these exercises, you will be using the host `node2` as user `root`.
+
+From host `bastion`, ssh to `node2`.
+
+[{format_cmd}]
+----
+ssh node2
+----
+
+Use `sudo` to elevate your privileges.
+
+[{format_cmd}]
+----
+[[ "$UID" == 0 ]] || sudo -i
+----
+
+Verify that you are on the right host for these exercises.
+
+[{format_cmd}]
+----
+workshop-stratis-checkhost.sh
+----
+
+You are now ready to proceed with these exercises.
+
+== Core Concepts
+
+In this unit you will be exposed to some more advanced concepts for storage management including:
+
+  * how to grow an active storage pool, and 
+  * how to add a cache device
+
+Again, please be sure to have completed the fundamental exercises first.
+
+== Grow Storage Pool
+
+From our earlier exercise there are 2 disks in the Stratis pool:
+
+[{format_cmd}]
+----
+stratis blockdev
+----
+
+[{format_output}]
+----
+Pool Name    Device Node    Physical Size   Tier
+summitpool   {disk1}                4 GiB   Data
+summitpool   {disk2}                4 GiB   Data
+----
+
+Stratis also makes it easy to add space to a pool.  Suppose the “summitfs” filesystem is growing close to the physical space in “summitpool”.  Adding an additional disk/block device is done using:
+
+[{format_cmd}]
+----
+stratis pool add-data summitpool {disk3}
+----
+
+[{format_cmd}]
+----
+stratis blockdev
+----
+
+[{format_output}]
+----
+Pool Name    Device Node    Physical Size   Tier
+summitpool   {disk1}                4 GiB   Data
+summitpool   {disk2}                4 GiB   Data
+summitpool   {disk3}                4 GiB   Data
+----
+
+Verify that the pool shows the additional space, and that the amount used is now in a safe range.
+
+[{format_cmd}]
+----
+stratis pool
+----
+
+[{format_plain}]
+----
+Name                  Total / Used / Free    Properties                                   UUID   Alerts
+summitpool   12 GiB / 538 MiB / 11.47 GiB   ~Ca,~Cr, Op   e7006323-5c8a-4ab8-b5f0-a693c6fb5b81         
+----
+
+== Add Cache Device
+
+Stratis also makes it easy to add cache devices.  For example, say the filesystem we just created runs into some I/O performance issues.  You bought an NVME or SSD (solid state disk) and need to configure it into the system to act as a high speed cache.  Use the following commands to add the drive {disk4} and check its status:
+
+[{format_cmd}]
+----
+stratis pool init-cache summitpool  {disk4}
+----
+
+[{format_cmd}]
+----
+stratis blockdev
+----
+
+[{format_output}]
+----
+Pool Name    Device Node  Physical Size    Tier   UUID                                
+summitpool   {disk1}              4 GiB    DATA   0231506a-5caa-49e1-b650-5a5bed250fa5
+summitpool   {disk2}              4 GiB    DATA   d9ae78ad-037e-44f9-95a2-9c662573c087
+summitpool   {disk3}              4 GiB    DATA   fe35bf55-2803-4aba-bab9-1985a6cd486e
+summitpool   {disk4}              4 GiB   CACHE   50feb9fe-7f35-4d83-ba8a-0fc73332823a
+----
+
+
+
+== Conclusion
+
+This concludes the exercises related to stratis.
+
+Time to finish this unit and return the shell to its home position.
+
+[{format_cmd}]
+----
+workshop-finish-exercise.sh
+----
+
+
+
+== Additional Resources
+
+Red Hat Documentation
+
+This lab does not get into more advanced topics like encryption or snapshots.  For more information on these and more details on Stratis in general, see the official Red Hat documentation here:
+
+    * link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/managing_file_systems/index#setting-up-stratis-file-systems[Managing Filesystems: Chapter 27. Setting Up Stratis File Systems]
+
+[discrete]
+== End of Unit
+
+ifdef::env-github[]
+link:../RHEL10-Workshop.adoc#toc[Return to TOC]
+endif::[]
+
+////
+Always end files with a blank line to avoid include problems.
+////
+

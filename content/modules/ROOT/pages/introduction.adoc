@@ -1,0 +1,88 @@
+:gitrepo: https://github.com/xtophd/RHEL10-Workshop
+:includedir: _include
+:doctype: book
+:sectnums:
+:sectnumlevels: 3
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+:imagesdir: ./_include/_images/
+
+= {lab_name}
+
+image::rhel-logo-black.jpg[rhel-logo-black,55%,55%]
+
+[discrete]
+== Presented By
+
+  * Christoph Doerbeck
+  * Eddie Chen
+  * Gordon Keegan
+
+
+
+== Welcome
+
+First of all, THANK YOU for registering and participating in *The Definitive Red Hat Enterprise Linux 10 Hands-on Lab*.  The lab team has worked very hard to assemble a series of exercises to introduce many of the new features and capabilities found in the next great release of RHEL.  We hope you enjoy this experience.
+
+  * Please don't hesitate to ask questions
+  * Please don't forget to review this session at the completion of this lab
+
+Your reviews and feedback help keep labs like this as top attractions for events like the Red Hat Summit in the future.
+
+NOTE:  This whole effort is done using official Red Hat software and although things can likely be set up to work with upstream software components (Fedora, CentOS-Stream, etc...), alternate derivatives of RHEL are not tested or validated with these exercises.
+
+
+
+== Workshop Abstract
+
+Welcome to The Definitive RHEL10 Hands-On Workshop.  This session will lead you through a mix of self-paced and proctored exercises covering selected fundamental, intermediate and advanced capabilities of Red Hat Enterprise Linux 10.  Presented by your talented Red Hat field solution architects, key areas covered include:
+
+    * Fundamental: Web Console, Package Management, Services, Firewall, Storage and intro to RHEL Lightspeed
+    * Intermediate: expanded Package Storage & Services topics, Containers, Virtualization, Image Builder, troubleshooting with RHEL Lightspeed
+    * Advanced: NFTables, eBPF Tracing, KPatch, TLog, Boot Management, Bootable Containers, LEAPP Upgrades
+
+And plenty more... There will be ample experts on hand to assist you and answer your questions. Join us and begin your journey to
+becoming a Red Hat Enterprise Linux 10 expert.
+
+
+
+== Guiding Principles
+
+For the most part, each unit is independent of the others.
+
+Units are designed to:
+
+    * Introduce a topic
+    * Provide a few activities to build understanding
+    * Be fun wherever possible
+    * Point you to help or additional info
+    * Be executed in 10-15 minutes
+
+Units are NOT designed to:
+
+    * Prepare you for an RHCE or RHCSA exam
+    * Go deep into a specific technology
+    * Build muscle memory by forcing you to type everything out
+    * Put you to sleep
+
+== How to Proceed
+
+Once the setup playbooks have completed, you can proceed directly to topics that interest you the most.  
+
+  * Use the catalog on the left with drop-down arrows to select the units 
+  * If you want to follow a sequential *learning path*, exercises are conveniently grouped *By Skill Level* or *By Category*
+
+If you elect to follow a *learning path*, you can use the navigation icons at the bottom of each unit to advance to the 'Next' unit in your path.
+
+It's up to you.  Ask questions and enjoy!
+
+
+////
+Always end files with a blank line to avoid include problems.
+////
+

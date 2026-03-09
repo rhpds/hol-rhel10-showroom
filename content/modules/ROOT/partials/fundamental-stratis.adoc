@@ -1,0 +1,330 @@
+
+= *Storage Management* (stratis)
+
+[discrete]
+== *Skill Level: Fundamental* icon:check[]
+
+
+
+
+== Overview
+
+Stratis is a command-line tool to create, modify, and destroy Stratis pools, and the filesystems allocated from the pool.  Stratis creates a pool from one or more block devices (blockdevs), and then enables multiple filesystems to be created from the pool.
+
+Instead of an entirely in-kernel approach like ZFS or Btrfs, Stratis uses a hybrid user/kernel approach that builds upon existing block capabilities like device-mapper, existing filesystem capabilities like XFS, and a user space daemon for monitoring and control.
+
+== Getting Started
+
+For these exercises, you will be using the host `node2` as user `root`.
+
+From host `bastion`, ssh to `node2`.
+
+[{format_cmd}]
+----
+ssh node2
+----
+
+Use `sudo` to elevate your privileges.
+
+[{format_cmd}]
+----
+[[ "$UID" == 0 ]] || sudo -i
+----
+
+Verify that you are on the right host for these exercises.
+
+[{format_cmd}]
+----
+workshop-stratis-checkhost.sh
+----
+
+You are now ready to proceed with these exercises.
+
+== Installation & Configuration
+
+Install the required packages - this will pull in several Python related dependencies.
+
+[{format_cmd}]
+----
+dnf install -y stratisd stratis-cli
+----
+
+Next we need to enable the `stratisd` service
+
+[{format_cmd}]
+----
+systemctl enable --now stratisd
+----
+
+Finally check the service status.
+
+[{format_cmd}]
+----
+systemctl --no-pager status stratisd
+----
+
+[{format_output}]
+----
+● stratisd.service - Stratis daemon
+     Loaded: loaded (/usr/lib/systemd/system/stratisd.service; enabled; vendor preset: enabled)
+     Active: active (running) since Mon 2022-08-01 21:56:27 UTC; 8min ago
+       Docs: man:stratisd(8)
+   Main PID: 43554 (stratisd)
+      Tasks: 6 (limit: 23122)
+     Memory: 1.6M
+        CPU: 257ms
+     CGroup: /system.slice/stratisd.service
+             └─43554 /usr/libexec/stratisd --log-level debug
+
+Aug 01 21:56:27 node2.qdq89.internal stratisd[43554]: [2022-08-01T21:56:27Z INFO  libstratis::stratis::run>
+Aug 01 21:56:27 node2.qdq89.internal stratisd[43554]: [2022-08-01T21:56:27Z INFO  libstratis::engine::stra>
+Aug 01 21:56:27 node2.qdq89.internal stratisd[43554]: [2022-08-01T21:56:27Z DEBUG libstratis::stratis::run>
+Aug 01 21:56:27 node2.qdq89.internal stratisd[43554]: [2022-08-01T21:56:27Z DEBUG libstratis::stratis::run>
+Aug 01 21:56:27 node2.qdq89.internal stratisd[43554]: [2022-08-01T21:56:27Z INFO  libstratis::stratis::ipc>
+Aug 01 21:56:27 node2.qdq89.internal stratisd[43554]: [2022-08-01T21:56:27Z DEBUG libstratis::stratis::run>
+Aug 01 21:56:27 node2.qdq89.internal stratisd[43554]: [2022-08-01T21:56:27Z DEBUG libstratis::stratis::run>
+Aug 01 21:56:27 node2.qdq89.internal systemd[1]: Started Stratis daemon.
+Aug 01 21:56:37 node2.qdq89.internal stratisd[43554]: [2022-08-01T21:56:37Z DEBUG libstratis::stratis::run>
+Aug 01 22:04:42 node2.qdq89.internal systemd[1]: Started Stratis daemon.
+----
+
+== Create Storage Pool
+
+WARNING: {disk0} is the system disk, DO NOT use it in any of the stratis commands or the vm will become unusable.
+
+
+=== Clean Up Devices
+
+Since we will be reusing the same resources for many exercises, we will begin by wiping everything clean.  Don't worry if you get an error message.
+
+[{format_cmd}]
+----
+umount /mnt/lab*
+----
+
+[{format_cmd}]
+----
+umount /summitdir
+----
+
+[{format_cmd}]
+----
+stratis fs destroy summitpool summitfs
+----
+
+[{format_cmd}]
+----
+stratis pool destroy summitpool
+----
+
+[{format_cmd}]
+----
+wipefs -a {disk_glob}
+----
+
+[{format_cmd}]
+----
+partprobe
+----
+
+
+=== Identify Available Block Devices
+
+See what disks/block devices are present.  Remeber that {disk0} is used by the operating system and should NOT be specified for any of these exercises.
+
+[{format_cmd}]
+----
+sfdisk -s
+----
+
+[{format_output}]
+----
+{disk0}:  52428800
+{disk1}:   4194304
+{disk2}:   4194304
+{disk3}:   4194304
+{disk4}:   4194304
+{disk5}:      1024
+total: 69207040 blocks
+----
+
+=== Create the Pool
+
+WARNING: REMEMBER - DON'T USE {disk0}!!!
+
+Create a storage pool using a pair of the available disks.
+
+[{format_cmd}]
+----
+stratis pool create summitpool {disk1} {disk2}
+----
+
+Verify your work and confirm the existence of the new storage pool with the combined available capacity.
+
+[{format_cmd}]
+----
+stratis pool list
+----
+
+[{format_plain}]
+----
+Name                Total / Used / Free    Properties                                   UUID   Alerts
+summitpool   8 GiB / 532 MiB / 7.48 GiB   ~Ca,~Cr, Op   2c81b8d2-e7dc-4528-a91b-ef4f7da5ba98   WS001
+----
+
+The output should show a total of 8 GiB, with 532 MiB used and 7.48GiB available.  The Properties indicate whether or not the pool has a cache (Ca) and/or is encrypted (Cr), while (Op) indicates that the pool allows overprovisioning.  The "~" character is used to indicate negative, so your output is showing no cache and not encrypted.
+
+Check the status of the block devices
+
+[{format_cmd}]
+----
+stratis blockdev list
+----
+
+[{format_output}]
+----
+Pool Name    Device Node    Physical Size   Tier
+summitpool  {disk1}                 4 GiB   Data
+summitpool  {disk2}                 4 GiB   Data
+----
+
+== Create Filesystem
+
+Now create a filesystem, a directory mount point, and mount the filesystem:
+(note that “fs” can optionally be written out as “filesystem”)
+
+[{format_cmd}]
+----
+stratis fs create summitpool summitfs
+----
+
+[{format_cmd}]
+----
+stratis fs list
+----
+
+[{format_output}]
+----
+Pool         Filesystem   Total / Used / Free / Limit            Device                             UUID                                
+summitpool   summitfs     1 TiB / 546 MiB / 1023.47 GiB / None   /dev/stratis/summitpool/summitfs   4fb05c71-0a7d-41c2-afe0-9e1234046e08
+----
+
+[{format_cmd}]
+----
+mkdir /summitdir
+----
+
+[{format_cmd}]
+----
+mount /dev/stratis/summitpool/summitfs /summitdir
+----
+
+[{format_cmd}]
+----
+df -h
+----
+
+[{format_output}]
+----
+Filesystem                                   Size  Used Avail Use% Mounted on
+/dev/vda3                                    50G  3.6G   47G   8% /
+devtmpfs                                     4.0M     0  4.0M   0% /dev
+tmpfs                                        3.5G     0  3.5G   0% /dev/shm
+tmpfs                                        1.4G   18M  1.4G   2% /run
+/dev/vda2                                    200M  8.4M  192M   5% /boot/efi
+tmpfs                                        1.0M     0  1.0M   0% /run/credentials/getty@tty1.service
+tmpfs                                        1.0M     0  1.0M   0% /run/credentials/serial-getty@ttyS0.service
+tmpfs                                        1.0M     0  1.0M   0% /run/credentials/systemd-journald.service
+tmpfs                                        1.0M     0  1.0M   0% /run/stratisd/ns_mounts
+tmpfs                                        713M  4.0K  713M   1% /run/user/1001
+/dev/mapper/stratis-1-2c81[_truncated_]6e08  1.0T   20G 1004G   2% /summitdir 
+----
+
+The actual space used by a filesystem can be shown using the `stratis fs list` command as shown above.  Notice how the summitdir filesystem has a virtual size of 1T.  If the data in a filesystem actually approaches its virtual size, Stratis will automatically grow the filesystem.
+
+== Create Permanent Mount
+
+Now make sure the filesystem will mount at boot time by adjusting the systems fstab.  You've been provided a simple script to perform this edit, but the manual steps are also outlined below in the 'Native command(s)' note.
+
+[{format_cmd}]
+----
+workshop-stratis-fstab.sh
+----
+
+[NOTE]
+====
+_Native command(s) to amend /etc/fstab_
+----
+UUID=`lsblk -n -o uuid /dev/stratis/summitpool/summitfs`
+echo "UUID=${UUID} /summitdir xfs defaults 0 0" >> /etc/fstab
+----
+====
+
+Verify that the /etc/fstab entry is correct by unmounting and mounting the filesystem one last time.
+
+[{format_cmd}]
+----
+umount /summitdir
+----
+
+[{format_cmd}]
+----
+mount /summitdir
+----
+
+[{format_output}]
+----
+mount: (hint) your fstab has been modified, but systemd still uses
+       the old version; use 'systemctl daemon-reload' to reload.
+----
+
+[{format_cmd}]
+----
+systemctl daemon-reload
+----
+
+[{format_cmd}]
+----
+df -h
+----
+
+[{format_output}]
+----
+Filesystem                                 Size  Used Avail Use% Mounted on
+devtmpfs                                   1.9G     0  1.9G   0% /dev
+tmpfs                                      1.9G     0  1.9G   0% /dev/shm
+tmpfs                                      1.9G   17M  1.9G   1% /run
+tmpfs                                      1.9G     0  1.9G   0% /sys/fs/cgroup
+/dev/vda1                                  30G  2.4G   28G   8% /
+tmpfs                                      379M     0  379M   0% /run/user/1000
+/dev/mapper/stratis-1-3e8e[_truncated_]71dc  1.0T  7.2G 1017G   1% /summitdir
+----
+
+== Conclusion
+
+This concludes the first exercises related to stratis.
+
+Time to finish this unit and return the shell to its home position.
+
+[{format_cmd}]
+----
+workshop-finish-exercise.sh
+----
+
+
+
+== Additional Resources
+
+Red Hat Documentation
+
+This lab does not get into more advanced topics like encryption or snapshots.  For more information on these and more details on Stratis in general, see the official Red Hat documentation here:
+
+    * link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/managing_file_systems/setting-up-stratis-file-systems[Setting up Stratis file systems]
+
+[discrete]
+== End of Unit
+
+////
+Always end files with a blank line to avoid include problems.
+////
+

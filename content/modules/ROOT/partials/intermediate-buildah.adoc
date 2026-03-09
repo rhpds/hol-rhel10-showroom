@@ -1,0 +1,618 @@
+
+= *Container Development* (buildah & skopeo)
+
+[discrete]
+== *Skill Level: Intermediate* icon:check[]
+
+
+
+
+== Overview
+
+NOTE: These exercises are an extension of the `podman` unit and although not required, it is strongly encourage that you complete that unit first.
+
+In this unit, we will continue to work with containers and get familiar with `Buildah` and `Skopeo`.  
+
+== Getting Started
+
+For these exercises, you will be using the host `node3` as user `root`.
+
+From host `bastion`, ssh to `node3`.
+
+[{format_cmd}]
+----
+ssh node3
+----
+
+Use `sudo` to elevate your privileges.
+
+[{format_cmd}]
+----
+[[ "$UID" == 0 ]] || sudo -i
+----
+
+Verify that you are on the right host for these exercises.
+
+[{format_cmd}]
+----
+workshop-buildah-checkhost.sh
+----
+
+You are now ready to proceed with these exercises.
+
+== Create a Container Image With Buildah
+
+In the previous lab on `podman`, we pulled down the ubi image and used an OCIFile to build a "webserver" container image. That process used `buildah` under the hood, but in this lab we are going to use `buildah` directly to create a similar image manually, step by step.
+
+=== Start a Fresh Build
+
+Let's get started by creating a new working container based off of the ubi image.
+
+[{format_cmd}]
+----
+buildah from registry.access.redhat.com/ubi10/ubi:latest
+----
+
+[{format_output}]
+----
+ubi-working-container
+----
+
+This gives us the name of the "working container" and it is this container image that we will modify with buildah.
+
+=== Add a Custom File
+
+Let's run:
+
+[{format_cmd}]
+----
+buildah copy ubi-working-container /var/tmp/buildah-dan-cries.txt /var/www/html/dan-cries.txt
+----
+
+[{format_output}]
+----
+c1c798ce4c962f7d2c7fb856f27685fb88905d996f78d5a97ef441f2c3aea6a2
+----
+
+At this point, you have copied your local `dan-cries.txt` into the the ubi-working-container image.
+
+The steps you performed above is equivalent to the following OCIFile (or Dockerfile):
+
+[{format_output}]
+----
+FROM ubi10-beta/ubi
+COPY /root/dan-cries.txt /var/www/html/
+----
+
+So it's nice that we can do that with buildah, manually.
+
+But wait there's more!!!
+
+=== Install Additional Packages
+
+We need to install an httpd server in our image, and what better way to do that than a simple `dnf install`.
+
+[{format_cmd}]
+----
+buildah run ubi-working-container dnf install -y httpd
+----
+
+[{format_output}]
+----
+...<output truncated>...
+
+Installed:
+  apr-1.7.5-2.el10.x86_64                       apr-util-1.6.3-21.el10.x86_64                  apr-util-lmdb-1.6.3-21.el10.x86_64        
+  apr-util-openssl-1.6.3-21.el10.x86_64         httpd-2.4.63-1.el10.x86_64                     httpd-core-2.4.63-1.el10.x86_64           
+  httpd-filesystem-2.4.63-1.el10.noarch         httpd-tools-2.4.63-1.el10.x86_64               libbrotli-1.1.0-6.el10.x86_64             
+  lmdb-libs-0.9.32-4.el10.x86_64                mailcap-2.1.54-8.el10.noarch                   mod_http2-2.0.29-2.el10.x86_64            
+  mod_lua-2.4.63-1.el10.x86_64                  redhat-logos-httpd-100.0-2.el10.noarch        
+
+Complete!
+----
+
+=== Configure the Entry Point
+
+Next we set the entry point (command) so when the image deploys it knows what process to launch.
+
+[{format_cmd}]
+----
+buildah config --cmd "/usr/sbin/httpd -D FOREGROUND" ubi-working-container
+----
+
+=== Validate the Container Image
+
+Now let us take a peek at our image and validate some of our changes.
+
+Proceed to mount the root filesystem of your container with:
+
+[{format_cmd}]
+----
+buildah mount ubi-working-container
+----
+
+[{format_output}]
+----
+/var/lib/containers/storage/overlay/3456a159b5b3c9e3056d14b97bde1f0e770500dd1cdd6168c894a52a3b3f12ee/merged
+----
+
+Using the long path provided by your mount command, change directories.
+
+[{format_cmd}]
+----
+cd $( buildah mount ubi-working-container )
+----
+
+[{format_cmd}]
+----
+ls -lah ./var/www/html
+----
+
+[{format_output}]
+----
+total 16K
+drwxr-xr-x. 2 root root 4.0K Apr 12 21:12 .
+drwxr-xr-x. 3 root root 4.0K Apr 12 21:12 ..
+-rw-r--r--. 1 root root   58 Apr 12 21:12 dan-cries.txt
+----
+
+There is our `dan-cries.txt`! Let's add an additional file:
+
+[{format_cmd}]
+----
+cp /var/tmp/buildah-index.html ./var/www/html/index.html
+----
+
+[{format_cmd}]
+----
+cat ./var/www/html/index.html
+----
+
+[{format_output}]
+----
+<html>
+<title>Stop Disabling SELinux</title>
+<body>
+<p>
+Seriously, stop disabling SELinux. Learn how to use it before you blindly shut it off.
+</p>
+</body>
+</html>
+----
+
+Let us just double check contents of the httpd docroot one last time:
+
+[{format_cmd}]
+----
+ls -lahZ ./var/www/html/
+----
+
+[{format_output}]
+----
+total 8.0K
+drwxr-xr-x. 2 root root system_u:object_r:container_file_t:s0:c233,c336  45 May 17 02:27 .
+drwxr-xr-x. 4 root root system_u:object_r:container_file_t:s0:c233,c336  33 May 17 02:26 ..
+-rwxr--r--. 1 root root system_u:object_r:container_file_t:s0:c233,c336  58 May 17 00:09 dan-cries.txt
+-rwxr--r--. 1 root root system_u:object_r:container_file_t:s0:c233,c336 164 May 17 02:27 index.html
+----
+
+When you are done making direct changes to the root filesystem of your container, you can run:
+
+[{format_cmd}]
+----
+cd /root
+buildah unmount ubi-working-container
+----
+
+[{format_output}]
+----
+585faf18366d0ccb92b8da0a8587b962c7c559c5c66dab699fed2ef927018e8c
+----
+
+==== Commit Changes to New Image
+
+At this point, we've used buildah to run commands and create a container image similar to those in the OCIFile used in the `podman` unit.  Go ahead and commit the working container in to an actual container image:
+
+[{format_cmd}]
+----
+buildah commit ubi-working-container webserver2
+----
+
+[{format_output}]
+----
+Getting image source signatures
+Copying blob 77300185f16e skipped: already exists  
+Copying blob 2e3f1df22abc done   | 
+Copying config fbdd72c2d1 done   | 
+Writing manifest to image destination
+fbdd72c2d11fc5f4fdab2164c835e0d824c4304044562523c9678c0a8882ba53
+----
+
+Let's look at our images:
+
+[{format_cmd}]
+----
+podman images
+----
+
+[{format_output}]
+----
+REPOSITORY                                    TAG         IMAGE ID      CREATED        SIZE
+localhost/webserver2                          latest      c8ae3c028c19  4 seconds ago  257 MB
+localhost/myfavorite                          latest      da862ffa1787  2 days ago     216 MB
+registry.access.redhat.com/ubi10/ubi          latest      da862ffa1787  2 days ago     216 MB
+registry.access.redhat.com/ubi10/ubi-minimal  latest      94287c165ee4  2 days ago     85.3 MB
+----
+
+==== Deploy
+
+Now let's run that webserver:
+
+[{format_cmd}]
+----
+podman run -d -p 8080:80 webserver2
+----
+
+==== Validate
+
+Finally let's test our new webserver:
+
+[{format_cmd}]
+----
+curl http://localhost:8080/
+----
+
+[{format_output}]
+----
+<html>
+<title>Stop Disabling SELinux</title>
+<body>
+<p>
+Seriously, stop disabling SELinux. Learn how to use it before you blindly shut it off.
+</p>
+</body>
+</html>
+----
+
+and:
+
+[{format_cmd}]
+----
+curl http://localhost:8080/dan-cries.txt
+----
+
+[{format_output}]
+----
+Every time you run setenforce 0, you make Dan Walsh weep.
+----
+
+As you can see, all of the changes we made with buildah are active and working in this new container image!
+
+== Inspecting Images with Skopeo
+
+Let's take a look at the webserver2:latest container that we just built:
+
+[{format_cmd}]
+----
+skopeo inspect containers-storage:localhost/webserver2:latest
+----
+
+[{format_output}]
+----
+INFO[0000] Not using native diff for overlay, this may cause degraded performance for building images: kernel has CONFIG_OVERLAY_FS_REDIREC
+T_DIR enabled                                                                                                                              
+{                                                                                                                                          
+    "Name": "localhost/webserver2",                                                                                                        
+    "Digest": "sha256:16b048e337d32e87d141b133a7f5e809689b83f961aafcdf90de8b1e9c4ce6d6",                                                   
+    "RepoTags": [],                                                                                                                        
+    "Created": "2025-05-17T02:28:30.166654457Z",                                                                                           
+    "DockerVersion": "",                                                                                                                   
+    "Labels": {                                                                                                                            
+        "architecture": "x86_64",                                                                                                          
+        "build-date": "2025-05-14T11:01:23",                                                                                               
+        "com.redhat.component": "ubi10-container",                                                                                         
+        "com.redhat.license_terms": "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI",                             
+        "description": "The Universal Base Image is designed and engineered to be the base layer for all of your containerized applications
+, middleware and utilities. This base image is freely redistributable, but Red Hat only supports Red Hat technologies through subscriptions
+ for Red Hat products. This image is maintained by Red Hat and updated regularly.",                                                        
+        "distribution-scope": "public",                                                                                                    
+        "io.buildah.version": "1.39.4",                                                                                                    
+        "io.k8s.description": "The Universal Base Image is designed and engineered to be the base layer for all of your containerized appli
+cations, middleware and utilities. This base image is freely redistributable, but Red Hat only supports Red Hat technologies through subscr
+iptions for Red Hat products. This image is maintained by Red Hat and updated regularly.",                                                 
+        "io.k8s.display-name": "Red Hat Universal Base Image 10",                                                                          
+        "io.openshift.expose-services": "",                                                                                                
+        "io.openshift.tags": "base rhel10",                                                                                                
+        "maintainer": "Red Hat, Inc.",                                                                                                     
+        "name": "ubi10",                                                                                                                   
+        "release": "1747220028",                                                                                                           
+        "summary": "Provides the latest release of Red Hat Universal Base Image 10.",                                                      
+        "url": "https://www.redhat.com",                                                                                                   
+        "vcs-ref": "859aaca6a9622a65b3e368169083f1ff0ff7d9bc",                                                                             
+        "vcs-type": "git",                                                                                                                 
+        "vendor": "Red Hat, Inc.",                                                                                                         
+        "version": "10.0"                                                                                                                  
+    },                                                                                                                                     
+    "Architecture": "amd64",                                                                                                               
+    "Os": "linux",                                                                                                                         
+    "Layers": [                                                                                                                            
+        "sha256:77300185f16e8cf13cda79910f92567456e16a354806e7639fc30549de2f1200",
+        "sha256:2e3f1df22abc76f2339e9e6959818ec949d964ac3ae1abfe2a7d41d84495a19e"                                                          
+    ],                                                                                                                                     
+    "LayersData": [                                                                                                                        
+        {                                                                                                                                  
+            "MIMEType": "application/vnd.oci.image.layer.v1.tar",                                                                          
+            "Digest": "sha256:77300185f16e8cf13cda79910f92567456e16a354806e7639fc30549de2f1200",
+            "Size": 216173568,                                                                                                             
+            "Annotations": null                                                                                                            
+        },                                                                                                                                 
+        {                                                                                                                                  
+            "MIMEType": "application/vnd.oci.image.layer.v1.tar",                                                                          
+            "Digest": "sha256:2e3f1df22abc76f2339e9e6959818ec949d964ac3ae1abfe2a7d41d84495a19e",
+            "Size": 40802816,                                                                                                              
+            "Annotations": null                                                                                                            
+        }                                                                                                                                  
+    ],                 
+    "Env": [                                                                                                                               
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",                                                               
+        "container=oci"                                                                                                                    
+    ]
+}                              
+----
+
+We will see that this container is based on the Red Hat UBI image. 
+
+Let's look at the ubi10/ubi container that we built this off of and compare the layers section:
+
+[{format_cmd}]
+----
+skopeo inspect containers-storage:registry.access.redhat.com/ubi10/ubi:latest
+----
+
+[{format_output}]
+----
+INFO[0000] Not using native diff for overlay, this may cause degraded performance for building images: kernel has CONFIG_OVERLAY_FS_REDIRECT_DIR enabled 
+{
+    "Name": "registry.access.redhat.com/ubi10/ubi",
+    "Digest": "sha256:f12acb3ff8f60e24462a14ccec8b5907185cbf535357cc95a62e249ef3114d20",
+    "RepoTags": [],
+    "Created": "2025-05-14T11:01:54.547186977Z",
+    "DockerVersion": "",
+    "Labels": {
+        "architecture": "x86_64",
+        "build-date": "2025-05-14T11:01:23",
+        "com.redhat.component": "ubi10-container",
+        "com.redhat.license_terms": "https://www.redhat.com/en/about/red-hat-end-user-license-agreements#UBI",
+        "description": "The Universal Base Image is designed and engineered to be the base layer for all of your containerized applications, middleware and utilities. This base image is freely redistributable, but Red Hat only supports Red Hat technologies through subscriptions for Red Hat products. This image is maintained by Red Hat and updated regularly.",
+        "distribution-scope": "public",
+        "io.buildah.version": "1.39.0-dev",
+        "io.k8s.description": "The Universal Base Image is designed and engineered to be the base layer for all of your containerized applications, middleware and utilities. This base image is freely redistributable, but Red Hat only supports Red Hat technologies through subscriptions for Red Hat products. This image is maintained by Red Hat and updated regularly.",
+        "io.k8s.display-name": "Red Hat Universal Base Image 10",
+        "io.openshift.expose-services": "",
+        "io.openshift.tags": "base rhel10",
+        "maintainer": "Red Hat, Inc.",
+        "name": "ubi10",
+        "release": "1747220028",
+        "summary": "Provides the latest release of Red Hat Universal Base Image 10.",
+        "url": "https://www.redhat.com",
+        "vcs-ref": "859aaca6a9622a65b3e368169083f1ff0ff7d9bc",
+        "vcs-type": "git",
+        "vendor": "Red Hat, Inc.",
+        "version": "10.0"
+    },
+    "Architecture": "amd64",
+    "Os": "linux",
+    "Layers": [
+        "sha256:7fdd59f6557bffecf5998fee3521fc5343cfb5f83d29c21d4af67c2dc82728c0"
+    ],
+    "LayersData": [
+        {
+            "MIMEType": "application/vnd.oci.image.layer.v1.tar+gzip",
+            "Digest": "sha256:7fdd59f6557bffecf5998fee3521fc5343cfb5f83d29c21d4af67c2dc82728c0",
+            "Size": 78897573,
+            "Annotations": null
+        }
+    ],
+    "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "container=oci"
+    ]
+}
+----
+
+Comparing the layers section, we can see that our container has 3 layers whereas the original container only has 2 layers. In this, we can tell that there are differences between these containers.
+
+Pretty neat that we can look inside local containers, but what about containers that are in registries? Skopeo can inspect containers on remote registries without the need to pull the image locally. Let's give that a test:
+
+[{format_cmd}]
+----
+skopeo inspect docker://registry.access.redhat.com/ubi10/ubi-init:latest
+----
+
+Again, there's a lot of information to inspect but just know that you are looking at data about an image that is not stored locally.
+
+To confirm, let's list the local images and verify ubi-init is not among them.
+
+[{format_cmd}]
+----
+podman images
+----
+
+[{format_output}]
+----
+REPOSITORY                                    TAG         IMAGE ID      CREATED        SIZE
+localhost/webserver2                          latest      c8ae3c028c19  3 minutes ago  257 MB
+localhost/myfavorite                          latest      da862ffa1787  2 days ago     216 MB
+registry.access.redhat.com/ubi10/ubi          latest      da862ffa1787  2 days ago     216 MB
+registry.access.redhat.com/ubi10/ubi-minimal  latest      94287c165ee4  2 days ago     85.3 MB
+----
+
+Notice that ubi10/ubi-init is not local to our registry. Skopeo provided that inspection completely remotely.
+
+=== Obtaining tarballs of containers in remote registries for further inspection
+
+Let's run:
+
+[{format_cmd}]
+----
+mkdir /root/ubi-tarball
+----
+
+[{format_cmd}]
+----
+skopeo copy docker://registry.access.redhat.com/ubi10/ubi-minimal:latest dir:/root/ubi-tarball
+----
+
+[{format_output}]
+----
+Getting image source signatures
+Checking if image destination supports signatures
+Copying blob c14a836c256b done   | 
+Copying blob 3ae9a56dd415 done   | 
+Copying config ead4841b04 done   | 
+Writing manifest to image destination
+Storing signatures
+----
+
+and now we can do:
+
+[{format_cmd}]
+----
+cd /root/ubi-tarball
+ls -l
+----
+
+[{format_output}]
+----
+total 32744
+-rw-r--r--. 1 root root     5069 Jun  5 19:38 94287c165ee42f4ea0e48960096d6bf2f3231cff33c9605db92f8a3bce8eb29c
+-rw-r--r--. 1 root root 33456101 Jun  5 19:38 a4dbf4dbfb30bc72d645362af81c7526b04553a22a2643a81f07020af9bc05e2
+-rw-r--r--. 1 root root      505 Jun  5 19:38 manifest.json
+-rw-r--r--. 1 root root      715 Jun  5 19:38 signature-1
+-rw-r--r--. 1 root root      715 Jun  5 19:38 signature-2
+-rw-r--r--. 1 root root     4168 Jun  5 19:38 signature-3
+-rw-r--r--. 1 root root     4184 Jun  5 19:38 signature-4
+-rw-r--r--. 1 root root     4172 Jun  5 19:38 signature-5
+-rw-r--r--. 1 root root     4180 Jun  5 19:38 signature-6
+-rw-r--r--. 1 root root     4192 Jun  5 19:38 signature-7
+-rw-r--r--. 1 root root     4180 Jun  5 19:38 signature-8
+-rw-r--r--. 1 root root       33 Jun  5 19:38 version
+----
+
+Inspecting the images with the `file` command, we discover text and data files, along with one or more zipped (compressed) tar files.
+
+[{format_cmd}]
+----
+file *
+----
+
+[{format_output}]
+----
+94287c165ee42f4ea0e48960096d6bf2f3231cff33c9605db92f8a3bce8eb29c: JSON text data
+a4dbf4dbfb30bc72d645362af81c7526b04553a22a2643a81f07020af9bc05e2: gzip compressed data, original size modulo 2^32 85243904
+manifest.json:                                                    JSON text data
+signature-1:                                                      data
+signature-2:                                                      data
+signature-3:                                                      data
+signature-4:                                                      data
+signature-5:                                                      data
+signature-6:                                                      data
+signature-7:                                                      data
+signature-8:                                                      data
+version:                                                          ASCII text
+----
+
+Let's take a test view of the contents of the largest gzip file (examine "original size"):
+
+[{format_cmd}]
+----
+tar ztvf $(ls --sort=size | head -1)
+----
+
+[{format_output}]
+----
+dr-xr-xr-x 0/0               0 2024-10-29 00:00 afs/
+lrwxrwxrwx 0/0               0 2024-10-29 00:00 bin -> usr/bin
+dr-xr-xr-x 0/0               0 2024-10-29 00:00 boot/
+drwxr-sr-x 0/0               0 2025-03-11 09:26 cachi2/
+drwxr-xr-x 0/0               0 2025-03-11 09:26 dev/
+-rw-r--r-- 0/0               0 2025-03-11 09:26 dev/null
+drwxr-xr-x 0/0               0 2025-03-11 09:26 etc/
+-rw-r--r-- 0/0              94 2024-10-29 00:00 etc/GREP_COLORS
+drwxr-xr-x 0/0               0 2025-03-11 09:26 etc/X11/
+drwxr-xr-x 0/0               0 2024-10-29 00:00 etc/X11/applnk/
+drwxr-xr-x 0/0               0 2024-10-29 00:00 etc/X11/fontpath.d/
+drwxr-xr-x 0/0               0 2025-03-11 09:26 etc/X11/xinit/
+drwxr-xr-x 0/0               0 2024-10-29 00:00 etc/X11/xinit/xinitrc.d/
+drwxr-xr-x 0/0               0 2024-10-29 00:00 etc/X11/xinit/xinput.d/
+-rw-r--r-- 0/0            1529 2023-11-29 10:34 etc/aliases
+
+...<ouptut_truncated>...
+----
+
+The output is going to scroll by rather quickly, but just note that this is a complete filesystem for the container image.
+
+NOTE: If you are more curious and would like to inspect the details a little further you could pipe the output to `more` or `less` and page through the archive contents.  `tar ztvf $(ls --sort=size | head -1) | less`
+
+Other files that may be present in the image include:
+
+  * a copy of the metadata in text 
+  * an additional tarball of any container secrets
+  * oci config info used to build the container
+  * version info
+  * manifest info
+
+=== Other Uses of Skopeo
+
+Skopeo can also do the following things:
+
+  * Copy an image (manifest, filesystem layers, signatures) from one location to another. It can convert between manifest types in doing this (oci, v2s1, v2s2)
+  * Delete images from registries to which you have admin rights.
+  * Push images to registries to which you have push rights.
+
+Examples of how to do these things are available in 'man skopeo'
+
+=== Cleanup
+
+[{format_cmd}]
+----
+podman stop --all
+podman rm --all
+
+buildah rm --all
+
+podman rmi --all
+buildah rmi --all
+----
+
+== Conclusion
+
+This concludes the exercises related to buildah and skopeo.
+
+Time to finish this unit and return the shell to its home position.
+
+[{format_cmd}]
+----
+workshop-finish-exercise.sh
+----
+
+
+[discrete]
+== Additional Reference Materials
+
+NOTE: You are not required to reference any additional resources for these exercises.  This is informational only.
+
+    * link:https://www.redhat.com/en/blog/introducing-red-hat-universal-base-image?sc_cid=701f2000000txokAAA&utm_source=bambu&utm_medium=social&utm_campaign=abm[Introducing the Red Hat Universal Base Image - Scott McCarty]
+    * link:https://linuxhandbook.com/buildah-basics/[Getting Started with Buildah - Servesha]
+
+[discrete]
+== End of Unit
+
+ifdef::env-github[]
+link:../RHEL10-Workshop.adoc#toc[Return to TOC]
+endif::[]
+
+////
+Always end files with a blank line to avoid include problems.
+////
+

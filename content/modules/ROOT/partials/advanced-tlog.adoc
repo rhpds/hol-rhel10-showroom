@@ -1,0 +1,266 @@
+
+= Advanced: *Session Logging* (tlog)
+
+[discrete]
+== *Skill Level: Advanced* icon:check[]
+
+
+
+
+== Overview
+
+Tlog is a terminal I/O recording and playback package for Linux.  The session logs retain all the passed data and timing.  Sessions are recorded in JSON format as to eventually deliver the data to a storage service _(such as Elasticsearch)_ where it can be searched, queried and be played back.
+
+Starting with RHEL 9, TLOG is configured by a relatively simple rhel-system-role.  We will come back to that later.
+
+If the lab's preparation playbook completed successfully, then node1.example.com has already been properly configured for session logging.  What follows are some basic exercises to demonstrate how this facility functions.
+
+
+== Getting Started
+
+For these exercises, you will be using the host `node1` as user `root`.
+
+From host `bastion`, ssh to `node1`.
+
+[{format_cmd}]
+----
+ssh node1
+----
+
+Use `sudo` to elevate your privileges.
+
+[{format_cmd}]
+----
+[[ "$UID" == 0 ]] || sudo -i
+----
+
+Verify that you are on the right host for these exercises.
+
+[{format_cmd}]
+----
+workshop-tlog-checkhost.sh
+----
+
+You are now ready to proceed with these exercises.
+
+== Creating a Session Log
+
+The system has been configured with an additional non-privileged user called `other-user`.  Run the following command to change to the `other-user`.
+
+NOTE: The command is 'su' + 'dash' + 'other-user'.  Don't forget the dash!
+
+[{format_cmd}]
+----
+su - other-user
+----
+
+[{format_output}]
+----
+ATTENTION! Your session is being recorded!
+----
+
+You should have gotten a message when switching to `other-user` that the session is being recorded.
+
+Now to do a few activities worth logging.  You can check out a directory listing, look at the host's _passwd_ and _shadow_ files.  
+
+[{format_cmd}]
+----
+ls -l /etc
+----
+
+[{format_output}]
+----
+total 1276
+-rw-r--r--.  1 root root     12 Feb 13 00:00 adjtime
+-rw-r--r--.  1 root root   1529 Nov 29  2023 aliases
+drwxr-xr-x.  2 root root   4096 May  1 21:01 alternatives
+-rw-r--r--.  1 root root    541 Dec 11 00:00 anacrontab
+drwxr-xr-x.  3 root root     51 May  1 20:59 ansible
+drwxr-x---.  4 root root    100 Mar 11 22:55 audit
+drwxr-xr-x.  3 root root   4096 May  1 21:26 authselect
+drwxr-xr-x.  2 root root     38 Mar 11 22:56 bash_completion.d
+-rw-r--r--.  1 root root   2709 Nov 29  2023 bashrc
+-rw-r--r--.  1 root root    535 Oct 29  2024 bindresvport.blacklist
+drwxr-xr-x.  2 root root      6 Mar 10 00:00 binfmt.d
+-rw-r--r--.  1 root root   1380 Oct  8  2024 chrony.conf
+drwxr-xr-x.  2 root root     26 Mar 11 22:55 cifs-utils
+drwxr-xr-x.  4 root root     59 Mar 11 22:56 cloud
+
+...<output truncated>...
+----
+
+[{format_cmd}]
+----
+cat /etc/passwd
+----
+
+[{format_output}]
+----
+root:x:0:0:Super User:/root:/bin/bash
+bin:x:1:1:bin:/bin:/usr/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/usr/sbin/nologin
+adm:x:3:4:adm:/var/adm:/usr/sbin/nologin
+lp:x:4:7:lp:/var/spool/lpd:/usr/sbin/nologin
+sync:x:5:0:sync:/sbin:/bin/sync
+shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+halt:x:7:0:halt:/sbin:/sbin/halt
+mail:x:8:12:mail:/var/spool/mail:/usr/sbin/nologin
+operator:x:11:0:operator:/root:/usr/sbin/nologin
+games:x:12:100:games:/usr/games:/usr/sbin/nologin
+ftp:x:14:50:FTP User:/var/ftp:/usr/sbin/nologin
+nobody:x:65534:65534:Kernel Overflow User:/:/usr/sbin/nologin
+yggdrasil:x:999:999:yggdrasil system user:/var/lib/yggdrasil:/usr/sbin/nologin
+yggdrasil-worker:x:998:998:yggdrasil worker user:/:/usr/sbin/nologin
+
+...<output truncated>...
+----
+
+[{format_cmd}]
+----
+cat /etc/shadow
+----
+
+[{format_output}]
+----
+cat: /etc/shadow: Permission denied
+----
+
+Oh wait, you need root privileges to see the contents of _/etc/shadow_.  You can use sudo for that!
+
+[{format_cmd}]
+----
+sudo cat /etc/shadow
+----
+
+[{format_output}]
+----
+root:*:20025:0:99999:7:::
+bin:*:20025:0:99999:7:::
+daemon:*:20025:0:99999:7:::
+adm:*:20025:0:99999:7:::
+lp:*:20025:0:99999:7:::
+sync:*:20025:0:99999:7:::
+shutdown:*:20025:0:99999:7:::
+halt:*:20025:0:99999:7:::
+mail:*:20025:0:99999:7:::
+operator:*:20025:0:99999:7:::
+games:*:20025:0:99999:7:::
+ftp:*:20025:0:99999:7:::
+nobody:*:20025:0:99999:7:::
+yggdrasil:!:20158::::::
+yggdrasil-worker:!:20158::::::
+
+...<output truncated>...
+----
+
+We are done with our limited nefarious activities, so proceed to `exit`
+
+[{format_cmd}]
+----
+exit
+----
+
+== Session Play Back
+
+Session logs are configured to record in the system journal by default.  A distinct advantage to this approach is that session recordings are also augmented with meta data which includes: user, session-id, host-id and a log-message-id.  Let's have a look.
+
+[{format_cmd}]
+----
+journalctl --no-pager -o verbose  --output-fields=TLOG_USER,TLOG_REC TLOG_USER=other-user 
+----
+
+[{format_output}]
+----
+Sat 2019-04-27 21:21:27.852913 EDT [s=bcde42e4c96048c3908657177414e202;i=700;b=b2333248c22a4c5f912a>
+    TLOG_USER=other-user
+    TLOG_REC=b2333248c22a4c5f912a245f6266582e-3cb9-e9bf9
+Sat 2019-04-27 21:21:33.354695 EDT [s=bcde42e4c96048c3908657177414e202;i=701;b=b2333248c22a4c5f912a>
+    TLOG_USER=other-user
+    TLOG_REC=b2333248c22a4c5f912a245f6266582e-3cb9-e9bf9
+Sat 2019-04-27 21:21:43.483301 EDT [s=bcde42e4c96048c3908657177414e202;i=702;b=b2333248c22a4c5f912a>
+    TLOG_USER=other-user
+    TLOG_REC=b2333248c22a4c5f912a245f6266582e-3cb9-e9bf9
+Sat 2019-04-27 21:21:54.193564 EDT [s=bcde42e4c96048c3908657177414e202;i=707;b=b2333248c22a4c5f912a>
+    TLOG_USER=other-user
+    TLOG_REC=b2333248c22a4c5f912a245f6266582e-3cb9-e9bf9
+Sat 2019-04-27 21:21:58.770887 EDT [s=bcde42e4c96048c3908657177414e202;i=70c;b=b2333248c22a4c5f912a>
+    TLOG_USER=other-user
+    TLOG_REC=b2333248c22a4c5f912a245f6266582e-3cb9-e9bf9
+----
+
+Each one of those entries makes up a chunk of a session recording.  It is by way of searching the system journal and identifying the correct TLOG_REC for a specific session, that you can then play back the session using `tlog-play`.
+
+We have taken the liberty of scripting this "search" to playback the last session log from the user other-user.
+Once you hit enter on the command below, you will see a note that "Playback Started..." and again when "Playback Finished...".  
+Be patient until it completes and your root prompt returns.
+
+[{format_cmd}]
+----
+workshop-tlog-playback.sh
+----
+
+[{format_plain}]
+----
+Playback Starting...
+[other-user@node1 ~]$ ls -l /etc
+total 1136
+-rw-r--r--.  1 root root       12 Feb 24  2022 adjtime
+-rw-r--r--.  1 root root     1529 Jun 23  2020 aliases
+drwxr-xr-x.  2 root root     4096 Sep  4 21:04 alternatives
+-rw-r--r--.  1 root root      541 Aug  9  2021 anacrontab
+drwxr-xr-x.  3 root root       51 Sep  4 21:04 ansible
+
+...<SNIP>...
+
+setroubleshoot:!!:19239::::::
+mysql:!!:19239::::::
+apache:!!:19239::::::
+other-user:$6$qbfI9WAi97Bpq2Cb$xGAZ90QHX3oPDF8whjame8UOTJKMFLgC2IjR5o2hm75k5PyL3cn9Hna8IpA8gt5yNP1ro0eiqAE3qsJHMVAok0:19239:0:99999:7:::
+tlog:!!:19239::::::
+[other-user@node1 ~]$ exit
+logout
+
+Playback Finished...
+----
+
+
+[NOTE]
+====
+_Native command(s) to playback last tlog_
+----
+myTLOG=`journalctl -o verbose -n 1 --output-fields=TLOG_USER,TLOG_REC TLOG_USER=other-user | grep TLOG_REC`
+
+tlog-play -r journal -M ${myTLOG}
+----
+====
+
+WARNING: It is important to wait until the playback is complete.  Do not proceed until you see the output `Playback Finished`.
+
+
+
+== Conclusion
+
+This concludes the exercises related to tlog.
+
+Time to finish this unit and return the shell to its home position.
+
+[{format_cmd}]
+----
+workshop-finish-exercise.sh
+----
+
+
+
+== Additional Resources
+
+Red Hat Documentation
+
+    * link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/automating_system_administration_by_using_rhel_system_roles/configuring-a-system-for-session-recording-by-using-rhel-system-roles[Configuring a system for session recording by using RHEL system roles]
+
+[discrete]
+== End of Unit
+
+////
+Always end files with a blank line to avoid include problems.
+////
+

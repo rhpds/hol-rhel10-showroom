@@ -1,0 +1,55 @@
+
+= *Bootable Containers* (bootc)
+
+[discrete]
+== *Skill Level: Advanced*
+
+
+
+
+== Overview
+
+
+== Getting Started
+
+For these exercises, you will be using the host `node2` as user `root`.
+
+From host `bastion`, ssh to `node2`.
+
+[{format_cmd}]
+----
+ssh node2
+----
+
+Use `sudo` to elevate your privileges.
+
+[{format_cmd}]
+----
+[[ "$UID" == 0 ]] || sudo -i
+----
+
+Verify that you are on the right host for these exercises.
+
+[{format_cmd}]
+----
+workshop-nbde-checkhost.sh
+----
+
+You are now ready to proceed with these exercises.
+
+== Build a bootable containers
+
+== Deploy a bootable container
+
+== Conclusion
+
+== Do You Want to Know More?
+
+https://www.youtube.com/watch?v=1p1pCoHFkP0
+https://docs.fedoraproject.org/en-US/bootc/getting-started/
+
+
+////
+Always end files with a blank line to avoid include problems.
+////
+

@@ -1,0 +1,37 @@
+:sectnums:
+:sectnumlevels: 3
+:markup-in-source: verbatim,attributes,quotes
+
+:format_cmd:        ,sh,options="nowrap",role=execute,subs="verbatim,quotes,attributes"
+:format_cmd_noattr: ,sh,options="nowrap",role=execute,subs="verbatim,quotes,-attributes"
+:format_output:     bash,options="nowrap",subs="verbatim,attributes,quotes"
+:format_plain:      bash,options="nowrap",subs="-attributes"
+
+:nic0:  enp0s3
+:disk0: /dev/vda
+:disk1: /dev/vdb
+:disk2: /dev/vdc
+:disk3: /dev/vdd
+:disk4: /dev/vde
+:disk5: /dev/vdf
+:disk_glob: /dev/vd{b..e}
+
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
+ifeval::["%cloud_provider%" == "ec2"]
+:nic0: eth0
+:disk0: /dev/nvme0n1
+:disk1: /dev/nvme1n1
+:disk2: /dev/nvme2n1
+:disk3: /dev/nvme3n1
+:disk4: /dev/nvme4n1
+:disk5: /dev/nvme5n1
+:disk_glob: /dev/nvme{1..4}n1
+endif::[]
+

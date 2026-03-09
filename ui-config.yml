@@ -11,23 +11,11 @@ view_switcher:
   default_mode: split
 
 tabs:
-  # OCP Console
-  # - name: OCP Console
-  #   url: 'https://console-openshift-console.${DOMAIN}'
-
-  # Single terminal
-  # - name: Bastion
-  #   path: /wetty
-  #   port: 443
-
-  # Vertical split terminals
-  # - name: Bastion
-  #   path: /wetty
-  #   port: 443
-  #   secondary_name: Bastion
-  #   secondary_path: /wetty
-  #   secondary_port: 443
-
-  # External page
-  - name: Llamastack Docs
-    url: 'https://llama-stack.readthedocs.io/en/latest/'
+    - name: '>_Terminal'
+      path: /wetty
+      port: 443
+      secondary_name: '>_Terminal-02'
+      secondary_path: /terminal2
+      secondary_port: 443
+    - name: 'Cockpit'
+      url: "{{ workshop_cockpit_url }}"

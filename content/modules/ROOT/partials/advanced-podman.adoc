@@ -1,0 +1,523 @@
+
+= *Container Management* (namespaces,containerfile)
+
+[discrete]
+== *Skill Level: Advanced* icon:check[]
+
+
+
+
+== Overview
+
+Podman (the POD manager) is a tool for developing, managing, and running containers on your Linux systems.
+
+In this unit, we will get familiar with application containers and the podman CLI.  
+
+== Getting Started
+
+For these exercises, you will be using the host `node3` as user `root`.
+
+From host `bastion`, ssh to `node3`.
+
+[{format_cmd}]
+----
+ssh node3
+----
+
+Use `sudo` to elevate your privileges.
+
+[{format_cmd}]
+----
+[[ "$UID" == 0 ]] || sudo -i
+----
+
+Verify that you are on the right host for these exercises.
+
+[{format_cmd}]
+----
+workshop-podman-checkhost.sh
+----
+
+You are now ready to proceed with these exercises.
+
+== Core Concepts
+
+In this unit you will be exposed to some advanced concepts involving containers:
+
+  * how they behave, 
+  * how they are built, and 
+  * how they can be customized
+
+These exercises build upon the material learned in the intermediate exercises for container management. 
+
+There are no dependencies on prior work so you can proceed without having completed the intermediate activities.
+
+== Exercise: Exploring Container Namespaces
+
+Namespaces are used to isolate data that is specific to each container like hostname, process, network, and mount/filesystem data.  Let's explore how.
+
+=== Clean Up
+
+Let's start by ensuring we have a clean environment.
+
+[{format_cmd}]
+----
+podman kill --all
+podman rm --all
+podman rmi --all
+----
+
+=== Pull Required Images
+
+Time to pull a container from the Red Hat registry.  For these exercises we will use a RHEL 10 Universal Base Image (UBI).
+
+[{format_cmd}]
+----
+podman search ubi10
+----
+
+From the command above, we see there are many versions of the UBI image available. Let's grab the standard image.
+
+[{format_cmd}]
+----
+podman pull registry.access.redhat.com/ubi10/ubi:latest
+----
+
+[{format_output}]
+----
+Trying to pull registry.access.redhat.com/ubi10/ubi:latest...
+Getting image source signatures
+Checking if image destination supports signatures
+Copying blob 7fdd59f6557b done   | 
+Copying config da862ffa17 done   | 
+Writing manifest to image destination
+Storing signatures
+da862ffa17875f5980832d6d8cd545f75e7cf3175a710b6529d7f7fc5fd650d1
+----
+
+=== UTS Namespace / Hostname
+
+Run the following command inside a UBI container instance.
+
+[{format_cmd}]
+----
+podman run ubi cat /proc/sys/kernel/hostname
+----
+
+[{format_output}]
+----
+6cea3acc210d
+----
+
+As you can see, the hostname in the container's namespace is NOT the same as the host platform (node3.example.com).  It is unique and is by default identical to the container's ID.  You can verify this with 'podman ps -a'.
+
+[{format_cmd}]
+----
+podman ps -a
+----
+
+[{format_output}]
+----
+CONTAINER ID  IMAGE                                        COMMAND               CREATED         STATUS                     PORTS       NAMES
+6cea3acc210d  registry.access.redhat.com/ubi10/ubi:latest  cat /proc/sys/ker...  15 seconds ago  Exited (0) 15 seconds ago              friendly_stonebraker
+----
+
+=== PID Namespace / Process ID
+
+Let us have a look at the process table from within the container's namespace.
+
+
+[{format_cmd}]
+----
+podman run ubi ps -ef
+----
+
+[{format_output}]
+----
+Error: crun: executable file 'ps' not found in $PATH: No such file or directory: OCI runtime attempted to invoke a command that was not found
+----
+
+What just happened?
+
+For the most part, containers are not meant for interactive (user) sessions.  In this instance, the image that we are using (ie: ubi) does not have the traditional commandline utilities a user might expect.  Common tools to configure network interfaces like 'ip' or even 'ps' simply aren't there.
+
+So for this exercise, we leverage something called a 'Bind-Mount' to effectively mirror a portion of the host's filesystem into the container's namespace.  A Bind-Mount is declared using the '-v' option.  In the example below, /usr/bin and /usr/lib64 from the host will be exposed and accessible to the containers namespace mounted at '/usr/bin' (ie: /usr/bin:/usr/bin).
+
+NOTE: The use of Bind-Mounts is generally suitable for debugging, but not a good practice as a design decision for enterprise container strategies.  After all, creating dependencies between applications and host operating systems is what we are trying to get away from.
+
+[{format_cmd}]
+----
+podman run -v /usr/bin:/usr/bin -v /usr/lib64:/usr/lib64 ubi /bin/ps -ef
+----
+
+[{format_output}]
+----
+UID          PID    PPID  C STIME TTY          TIME CMD
+root           1       0  0 17:23 ?        00:00:00 /bin/ps -ef
+----
+
+Notice that all the process belonging to host itself are absent.  The programs running in the container's namespace are isolated from the rest of the host.  From the container's perspective, the process in the container is the only process running.
+
+
+=== Network Namespace / Network & IP
+
+Now let us run a command to report the network configuration from within the container's network namespace.  Note that the command is in /usr/sbin this time.
+
+[{format_cmd}]
+----
+podman run -v /usr/sbin:/usr/sbin  ubi /usr/sbin/ip addr show eth0
+----
+
+[{format_output}]
+----
+2: eth0@if11: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+    link/ether 6a:65:6c:a9:79:62 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 10.88.0.5/16 brd 10.88.255.255 scope global eth0
+       valid_lft forever preferred_lft forever
+    inet6 fe80::6865:6cff:fea9:7962/64 scope link tentative proto kernel_ll 
+       valid_lft forever preferred_lft forever
+----
+
+A couple more commands to understand the network setup.
+
+Let us begin by examining the '/etc/hosts' file.
+
+NOTE: Note that we introduce the '--rm' flag to our podman command.  This tells podman to automatically cleanup after the container exists
+
+[{format_cmd}]
+----
+podman run --rm ubi cat /etc/hosts
+----
+
+[{format_output}]
+----
+127.0.0.1       localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1     localhost localhost.localdomain localhost6 localhost6.localdomain6
+10.88.0.1       host.containers.internal host.docker.internal
+10.88.0.6       7b6141248f39 beautiful_swanson
+----
+
+How does the container resolve hostnames (ie: DNS)?
+
+[{format_cmd}]
+----
+podman run --rm ubi cat /etc/resolv.conf
+----
+
+[{format_output}]
+----
+search sandbox-rh9rs-ocp4-cluster.svc.cluster.local svc.cluster.local cluster.local ocpv08.dal10.infra.demo.redhat.com
+nameserver 172.30.0.10
+----
+
+Take a look at the routing table.
+Let's take a look at the routing table for the container.  Again the command is in /usr/sbin
+
+[{format_cmd}]
+----
+podman run -v /usr/sbin:/usr/sbin --rm ubi route -n
+----
+
+[{format_output}]
+----
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         10.88.0.1       0.0.0.0         UG    100    0        0 eth0
+10.88.0.0       0.0.0.0         255.255.0.0     U     0      0        0 eth0
+----
+
+
+=== Mount Namespace / Filesystem
+
+Finally, look at the filesystems in the container's namespace.  'df' is included in the container image so no Bind-Mount is required.
+
+[{format_cmd}]
+----
+podman run ubi df -h
+----
+
+[{format_output}]
+----
+Filesystem      Size  Used Avail Use% Mounted on
+overlay          50G  4.1G   46G   9% /
+tmpfs            64M     0   64M   0% /dev
+tmpfs           1.4G   15M  1.4G   2% /etc/hosts
+shm              63M     0   63M   0% /dev/shm
+devtmpfs        4.0M     0  4.0M   0% /proc/keys
+----
+
+Now let's examine what the filesystems look like with an active Bind-Mount.
+
+[{format_cmd}]
+----
+podman run -v /usr/bin:/usr/bin ubi df -h
+----
+
+[{format_output}]
+----
+Filesystem      Size  Used Avail Use% Mounted on
+overlay          50G  4.1G   46G   9% /
+tmpfs            64M     0   64M   0% /dev
+shm              63M     0   63M   0% /dev/shm
+tmpfs           1.4G   16M  1.4G   2% /etc/hosts
+/dev/vda3        50G  4.1G   46G   9% /usr/bin
+devtmpfs        4.0M     0  4.0M   0% /proc/keys
+----
+
+Notice above how there is now a dedicated mount point for /usr/bin.  Bind-Mounts can be a very powerful tool (primarily for diagnostics) to temporarily inject tools and files that are not normally part of a container image.  Remember, using Bind-Mounts as a design decision for enterprise container strategies is folly.
+
+Let us clean up your environment before proceeding
+
+[{format_cmd}]
+----
+podman kill --all
+podman rm --all
+----
+
+
+== Exercise: Container from a Containerfile
+
+=== Setup 
+
+A configuration file for a podman build has already been supplied for your system.  Have a look at the contents of that config.
+
+[{format_cmd}]
+----
+cat /root/custom_image.OCIFile
+----
+
+[{format_output}]
+----
+FROM registry.access.redhat.com/ubi10/ubi:latest
+
+#NOTE:  Until RHEL10 is GA, we can only use the local hosts repos to augment the
+#       the container image with additional content.
+#       Once GA, we can utilize the public ubi repos
+#
+#RUN dnf --disablerepo=* --enablerepo=ubi-10-baseos-rpms --enablerepo=ubi-10-appstream-rpms install -y httpd
+
+RUN dnf install -y httpd
+
+RUN dnf clean all
+
+RUN echo "The Web Server is Running" > /var/www/html/index.html
+
+EXPOSE 80
+
+CMD ["-D", "FOREGROUND"]
+ENTRYPOINT ["/usr/sbin/httpd"]
+----
+
+Notice a few things about the configuration:
+
+  * that our image is based on `ubi10/ubi:latest`
+  * the build process will install an additional package `httpd` along with its dependencies
+  * httpd is configured by default to run on port 80 so that is the port that is exposed (note that the EXPOSE keyword is purely informational; the port must still be published by the container runtime in order to be used)
+  * the build will create a file `/var/www/html/index.html` with the contents "The Web Server is Running"
+
+=== Build
+
+Now it's time to build the new container image.
+
+[{format_cmd}]
+----
+podman build -t custom_image --file custom_image.OCIFile
+----
+
+Once this completes, run:
+
+[{format_cmd}]
+----
+podman images
+----
+
+[{format_output}]
+----
+REPOSITORY                            TAG         IMAGE ID      CREATED        SIZE
+localhost/custom_image                latest      d59222b092bf  3 seconds ago  257 MB
+registry.access.redhat.com/ubi10/ubi  latest      da862ffa1787  2 days ago     216 MB
+----
+
+=== Deploy
+
+Time to deploy the image.  A few things to note here:
+
+  * we are going to name the container instance "webserver"
+  * we are publishing port 80 of the container instance to port 8080 on the host
+  * the container instance will run in 'detached' mode
+
+[{format_cmd}]
+----
+podman run -d --name="webserver" -p 8080:80 custom_image
+----
+
+=== Inspect
+
+To view some facts about the running container, you use 'podman inspect'.
+
+[{format_cmd}]
+----
+podman inspect webserver
+----
+
+This reveals quite a bit of information which you can drill in to using additional format arguments.  For example, let us locate the IP address for the container.
+
+[{format_cmd}]
+----
+podman inspect --format '{{ .NetworkSettings.IPAddress }}' webserver
+----
+
+You can see the IP address that was assigned to the container.
+
+We can apply the same filter to any value in the json output. Try a few different ones.
+
+=== Validation
+
+[{format_cmd}]
+----
+curl http://localhost:8080/
+----
+
+[{format_output}]
+----
+The Web Server is Running
+----
+
+Let us look at the processes running on the host.
+
+[{format_cmd}]
+----
+pgrep -laf httpd
+----
+
+[{format_output}]
+----
+48787 /usr/sbin/httpd -D FOREGROUND
+48789 /usr/sbin/httpd -D FOREGROUND
+48790 /usr/sbin/httpd -D FOREGROUND
+48791 /usr/sbin/httpd -D FOREGROUND
+48792 /usr/sbin/httpd -D FOREGROUND
+----
+
+And finally let's look at some networking info.
+
+[{format_cmd}]
+----
+netstat -utlpn | grep 8080
+----
+
+[{format_output}]
+----
+tcp        0      0 0.0.0.0:8080            0.0.0.0:*               LISTEN      48784/conmon
+----
+
+
+Now let's introduce a command-line utility 'lsns' to check out the namespaces.
+
+[{format_cmd}]
+----
+lsns
+----
+
+[{format_output}]
+----
+        NS TYPE   NPROCS   PID USER   COMMAND
+4026531834 time      107     1 root   /usr/lib/systemd/systemd nofb --switched-root --system --deserialize 18
+4026531835 cgroup    102     1 root   /usr/lib/systemd/systemd nofb --switched-root --system --deserialize 18
+4026531836 pid       102     1 root   /usr/lib/systemd/systemd nofb --switched-root --system --deserialize 18
+4026531837 user      107     1 root   /usr/lib/systemd/systemd nofb --switched-root --system --deserialize 18
+4026531838 uts       100     1 root   /usr/lib/systemd/systemd nofb --switched-root --system --deserialize 18
+4026531839 ipc       102     1 root   /usr/lib/systemd/systemd nofb --switched-root --system --deserialize 18
+4026531840 mnt        92     1 root   /usr/lib/systemd/systemd nofb --switched-root --system --deserialize 18
+4026531860 mnt         1    24 root   kdevtmpfs
+4026531992 net       102     1 root   /usr/lib/systemd/systemd nofb --switched-root --system --deserialize 18
+4026532252 mnt         1   640 root   /usr/lib/systemd/systemd-udevd
+4026532253 uts         1   640 root   /usr/lib/systemd/systemd-udevd
+4026532308 mnt         2   745 root   /sbin/auditd
+4026532309 mnt         1   792 chrony /usr/sbin/chronyd -F 2
+4026532310 mnt         1   772 root   /usr/sbin/irqbalance --foreground
+4026532311 mnt         1   790 root   /usr/lib/systemd/systemd-logind
+4026532312 uts         1   790 root   /usr/lib/systemd/systemd-logind
+4026532313 mnt         2   802 dbus   /usr/bin/dbus-broker-launch --scope system --audit
+4026532314 mnt         1   804 root   /usr/sbin/NetworkManager --no-daemon
+4026532316 net         5 48787 root   /usr/sbin/httpd -D FOREGROUND
+4026532375 mnt         5 48787 root   /usr/sbin/httpd -D FOREGROUND
+4026532376 uts         5 48787 root   /usr/sbin/httpd -D FOREGROUND
+4026532377 ipc         5 48787 root   /usr/sbin/httpd -D FOREGROUND
+4026532378 pid         5 48787 root   /usr/sbin/httpd -D FOREGROUND
+4026532379 cgroup      5 48787 root   /usr/sbin/httpd -D FOREGROUND
+----
+
+We see that the httpd processes running are using the mnt uts ipc pid and net namespaces.
+
+Since we explored namespaces earlier, we may as well have a look at the control-groups aligned with our process.  
+
+[{format_cmd}]
+----
+systemd-cgls --no-pager
+----
+
+[{format_output}]
+----
+... SNIP ...
+└─machine.slice (#7107)
+  → trusted.invocation_id: aaf8887d115a4205a876885134f5b7c3
+  ├─libpod-2a60daa6c3abb5d5a7282598f2747999c0c71807752911b831a4e66743f084b8.scope … (#11452)
+  │ → trusted.delegate: 1
+  │ → trusted.invocation_id: 49c9ef47d6e04e6abc3bbb20a9943692
+  │ └─container (#11505)
+  │   ├─48787 /usr/sbin/httpd -D FOREGROUND
+  │   ├─48789 /usr/sbin/httpd -D FOREGROUND
+  │   ├─48790 /usr/sbin/httpd -D FOREGROUND
+  │   ├─48791 /usr/sbin/httpd -D FOREGROUND
+  │   └─48792 /usr/sbin/httpd -D FOREGROUND
+  └─libpod-conmon-2a60daa6c3abb5d5a7282598f2747999c0c71807752911b831a4e66743f084b8.scope … (#11399)
+    → trusted.delegate: 1
+    → trusted.invocation_id: e0b9d07bb47a4af7a859e492a86b85c0
+    └─48784 /usr/bin/conmon --api-version 1 -c 2a60daa6c3abb5d5a7282598f2747999c0c71807752911b831a4e66743f084b8 -u 2a60daa6>
+----
+
+What we can tell is that our container is bound by a cgroup called "machine.slice".  Otherwise, nothing remarkable to discern here.
+
+=== Cleanup
+
+[{format_cmd}]
+----
+podman stop webserver
+podman rm webserver
+podman kill --all
+podman rm --all
+podman rmi --all --force
+----
+
+== Conclusion
+
+This concludes the exercises related to podman.
+
+Time to finish this unit and return the shell to its home position.
+
+[{format_cmd}]
+----
+workshop-finish-exercise.sh
+----
+
+
+[discrete]
+== Additional Reference Materials
+
+    * link:https://www.redhat.com/en/blog/introducing-red-hat-universal-base-image[Introducing the Red Hat Universal Base Image - Scott McCarty]
+    * link:https://developers.redhat.com/blog/2018/11/20/buildah-podman-containers-without-daemons/[Containers without daemons: Podman and Buildah available in RHEL 7.6 and RHEL 8 Beta - Tom Sweeney]
+    * link:https://www.redhat.com/en/blog/7-linux-namespaces[The 7 Most Used Linux Namespaces - Steve Ovens]
+
+
+[discrete]
+== End of Unit
+
+ifdef::env-github[]
+link:../RHEL10-Workshop.adoc#toc[Return to TOC]
+endif::[]
+
+////
+Always end files with a blank line to avoid include problems.
+////
+

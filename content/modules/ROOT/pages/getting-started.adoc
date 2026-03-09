@@ -1,0 +1,30 @@
+include::partial$header-format.adoc[]
+
+
+
+= {lab_name}
+
+image::rhel-logo-black.jpg[rhel-logo-black,55%,55%]
+
+WARNING:  Executing these setup tasks is a requirement before proceeding with the workshop exercises.
+
+== Getting Started (DO THIS FIRST!)
+
+These steps should be easy to click-through if you are using the showroom terminal.
+
+Launch a 'tmux' (terminal multiplexer):
+
+[{format_cmd}]
+----
+workshop-tmux.sh TERM1
+----
+
+Connect to node1 and run the setup playbooks:
+
+[{format_cmd}]
+----
+ssh node1 'sudo -i ./RHEL10-Workshop/sample-configs/gpte/workshop-setup.sh' ; cat /etc/motd
+----
+
+While this is running, please proceed to the Introduction.
+
