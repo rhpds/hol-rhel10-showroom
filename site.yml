@@ -1,6 +1,6 @@
 ---
 site:
-  title: Showroom Template Demo
+  title: LB1237 - The Definitive Red Hat Enterprise Linux 10 Hands-On Lab
   url: https://github.com/rhpds/showroom_template_nookbag
   start_page: modules::index.adoc
 
@@ -14,15 +14,19 @@ ui:
     url: https://github.com/rhpds/rhdp_showroom_theme/releases/download/rh-summit-2025/ui-bundle.zip
     snapshot: true
   supplemental_files:
-    - path: ./content/supplemental-ui
+    - path: ./supplemental-ui
 
 antora:
   extensions:
     - '@sntke/antora-mermaid-extension'
 
+runtime:
+  fetch: true
+
 asciidoc:
   attributes:
     experimental: true
+    page-pagination: true
     showroom-collection-version: v1.5.2
 
 output:

@@ -23,7 +23,7 @@
 ***  xref:101-imagemode.adoc[Bootable Containers (image mode, bootc)]
 ***  xref:101-imagebuilder.adoc[Image Builder (composer)]
 ***  xref:101-virtualization.adoc[Virt Mgmt (libvirt)]
-***  xref:101-lightspeed.adoc[RHEL Lightspeed] (lightspeed)]
+***  xref:101-lightspeed.adoc[RHEL Lightspeed pt.2 (lightspeed)]
 
 **  Advanced
 ***  xref:200-lvm-vdo.adoc[Storage DeDup (lvm,vdo)] 

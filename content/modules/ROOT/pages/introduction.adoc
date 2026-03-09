@@ -14,7 +14,7 @@ endif::[]
 
 = {lab_name}
 
-image::rhel-logo-black.jpg[rhel-logo-black,55%,55%]
+image::rhel-logo-black.jpg[Red Hat Enterprise Linux logo,55%,55%,link=self,window=blank]
 
 [discrete]
 == Presented By
@@ -70,11 +70,36 @@ Units are NOT designed to:
     * Build muscle memory by forcing you to type everything out
     * Put you to sleep
 
+== Technical Requirements
+
+This workshop environment provides:
+
+  * **Host Systems**: Multiple RHEL 10 nodes (bastion, node1, node2, node3) for hands-on exercises
+  * **Networking**: Pre-configured network connectivity between nodes
+  * **Storage**: Multiple block devices per node for storage exercises
+  * **Web Console Access**: Cockpit web interface available on port 443/9090
+  * **Terminal Access**: SSH and web-based terminal (wetty) available
+  * **Pre-installed Software**: Essential packages and workshop scripts already configured
+
+=== Prerequisites
+
+  * Basic Linux command-line knowledge
+  * Familiarity with SSH and terminal operations
+  * Understanding of basic system administration concepts
+  * Web browser for accessing Cockpit and terminal interfaces
+
+=== Environment Access
+
+  * **Bastion Host**: Your entry point to the workshop environment
+  * **Terminal**: Use the Showroom terminal panel on the right
+  * **Web Console**: Access via the Cockpit tab when working with node3
+  * **Setup Required**: Complete the "Getting Started" steps before beginning exercises
+
 == How to Proceed
 
-Once the setup playbooks have completed, you can proceed directly to topics that interest you the most.  
+Once the setup playbooks have completed, you can proceed directly to topics that interest you the most.
 
-  * Use the catalog on the left with drop-down arrows to select the units 
+  * Use the catalog on the left with drop-down arrows to select the units
   * If you want to follow a sequential *learning path*, exercises are conveniently grouped *By Skill Level* or *By Category*
 
 If you elect to follow a *learning path*, you can use the navigation icons at the bottom of each unit to advance to the 'Next' unit in your path.

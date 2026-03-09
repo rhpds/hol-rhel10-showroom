@@ -73,7 +73,7 @@ Red Hat Enterprise Linux (RHEL) is a commercial open-source operating system
 developed by Red Hat for the enterprise market. It is renowned for its stability,
 security, and support, making it a popular choice for businesses and organizations.
 RHEL is built around the Linux kernel and includes a wide range of software packages,
-providing a robust platform for various workloads, including web servers, databases,
+providing a stable, performant platform for various workloads, including web servers, databases,
 and cloud infrastructure.
 
 For detailed information on RHEL's capabilities, limitations, life cycle, supported

@@ -1,6 +1,6 @@
 = {lab_name}
 
-image::rhel-logo-black.jpg[rhel-logo-black,55%,55%]
+image::rhel-logo-black.jpg[Red Hat Enterprise Linux logo,55%,55%,link=self,window=blank]
 
 
 
