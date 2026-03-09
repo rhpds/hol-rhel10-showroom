@@ -17,6 +17,26 @@ Your feedback is what keeps activities like this on the agenda.
 Thanks again!
 
 [discrete]
+== What You've Learned
+
+Throughout this workshop, you've gained hands-on experience with:
+
+* **Package Management**: Installing, updating, and managing software with dnf
+* **Service Management**: Controlling system services with systemd
+* **Storage Management**: Configuring advanced storage with Stratis and LVM-VDO
+* **Firewall Management**: Securing systems with firewalld and nftables
+* **Container Technologies**: Building and managing containers with Podman, Buildah, and Skopeo
+* **Image Mode and Bootable Containers**: Creating bootable container images for immutable infrastructure
+* **Virtualization**: Managing virtual machines with libvirt and Image Builder
+* **RHEL Lightspeed**: Leveraging AI-assisted system administration
+* **Security and Monitoring**: Session logging with tlog and eBPF tracing for performance analysis
+* **System Upgrades**: Performing in-place upgrades with LEAPP
+* **Boot Management**: Managing boot configurations with Boom
+* **Web Console**: Using Cockpit for graphical system management
+
+You're now equipped to deploy, manage, and troubleshoot Red Hat Enterprise Linux 10 systems effectively.
+
+[discrete]
 == What's Next
 
 Do you think colleagues at work would benefit from a private local delivery?
@@ -32,6 +52,31 @@ Topics that are already on the horizon include:
 
     * NBDE - Network Bound Disk Encryption
     * SELinux - Security Enhanced Linux
+
+[discrete]
+== References
+
+=== Official Red Hat Enterprise Linux 10 Documentation
+
+* link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10[Red Hat Enterprise Linux 10 Documentation^]
+* link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/using_systemd_unit_files_to_customize_and_optimize_your_system[Using systemd unit files to customize and optimize your system^]
+* link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/managing_file_systems/index#setting-up-stratis-file-systems[Managing Filesystems: Setting Up Stratis File Systems^]
+* link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/configuring_firewalls_and_packet_filters[Configuring firewalls and packet filters^]
+* link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/configuring_firewalls_and_packet_filters/getting-started-with-nftables[Getting started with nftables^]
+
+=== Red Hat Blogs and Articles
+
+* link:https://www.redhat.com/en/blog/introducing-red-hat-universal-base-image[Introducing the Red Hat Universal Base Image - Scott McCarty^]
+* link:https://developers.redhat.com/blog/2018/11/20/buildah-podman-containers-without-daemons/[Containers without daemons: Podman and Buildah^]
+* link:https://www.redhat.com/en/blog/7-linux-namespaces[The 7 Most Used Linux Namespaces - Steve Ovens^]
+* link:https://developers.redhat.com/blog/2018/08/10/firewalld-the-future-is-nftables/[Firewalld: The Future is nftables^]
+
+=== Community Resources
+
+* link:https://netfilter.org/projects/nftables[NFTables Project Page^]
+* link:https://en.wikipedia.org/wiki/Nftables[Wikipedia NFTables^]
+* link:https://wiki.nftables.org/wiki-nftables/index.php/Main_Page[NFTables How-To^]
+* link:https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes[NFTables Quick Reference^]
 
 [discrete]
 == End of Workshop

@@ -140,7 +140,7 @@ Red Hat Documentation
 
 This lab does not get into more advanced topics like encryption or snapshots.  For more information on these and more details on Stratis in general, see the official Red Hat documentation here:
 
-    * link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/managing_file_systems/index#setting-up-stratis-file-systems[Managing Filesystems: Chapter 27. Setting Up Stratis File Systems]
+    * link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html-single/managing_file_systems/index#setting-up-stratis-file-systems[Managing Filesystems: Chapter 27. Setting Up Stratis File Systems^]
 
 [discrete]
 == End of Unit

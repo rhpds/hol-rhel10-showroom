@@ -141,7 +141,7 @@ What just happened?
 
 For the most part, containers are not meant for interactive (user) sessions.  In this instance, the image that we are using (ie: ubi) does not have the traditional commandline utilities a user might expect.  Common tools to configure network interfaces like 'ip' or even 'ps' simply aren't there.
 
-So for this exercise, we leverage something called a 'Bind-Mount' to effectively mirror a portion of the host's filesystem into the container's namespace.  A Bind-Mount is declared using the '-v' option.  In the example below, /usr/bin and /usr/lib64 from the host will be exposed and accessible to the containers namespace mounted at '/usr/bin' (ie: /usr/bin:/usr/bin).
+So for this exercise, we use something called a 'Bind-Mount' to effectively mirror a portion of the host's filesystem into the container's namespace.  A Bind-Mount is declared using the '-v' option.  In the example below, /usr/bin and /usr/lib64 from the host will be exposed and accessible to the containers namespace mounted at '/usr/bin' (ie: /usr/bin:/usr/bin).
 
 NOTE: The use of Bind-Mounts is generally suitable for debugging, but not a good practice as a design decision for enterprise container strategies.  After all, creating dependencies between applications and host operating systems is what we are trying to get away from.
 
@@ -264,7 +264,7 @@ tmpfs           1.4G   16M  1.4G   2% /etc/hosts
 devtmpfs        4.0M     0  4.0M   0% /proc/keys
 ----
 
-Notice above how there is now a dedicated mount point for /usr/bin.  Bind-Mounts can be a very powerful tool (primarily for diagnostics) to temporarily inject tools and files that are not normally part of a container image.  Remember, using Bind-Mounts as a design decision for enterprise container strategies is folly.
+Notice above how there is now a dedicated mount point for /usr/bin.  Bind-Mounts are an effective diagnostic tool to temporarily inject tools and files that are not normally part of a container image.  Remember, using Bind-Mounts as a design decision for enterprise container strategies is folly.
 
 Let us clean up your environment before proceeding
 
@@ -505,9 +505,9 @@ workshop-finish-exercise.sh
 [discrete]
 == Additional Reference Materials
 
-    * link:https://www.redhat.com/en/blog/introducing-red-hat-universal-base-image[Introducing the Red Hat Universal Base Image - Scott McCarty]
-    * link:https://developers.redhat.com/blog/2018/11/20/buildah-podman-containers-without-daemons/[Containers without daemons: Podman and Buildah available in RHEL 7.6 and RHEL 8 Beta - Tom Sweeney]
-    * link:https://www.redhat.com/en/blog/7-linux-namespaces[The 7 Most Used Linux Namespaces - Steve Ovens]
+    * link:https://www.redhat.com/en/blog/introducing-red-hat-universal-base-image[Introducing the Red Hat Universal Base Image - Scott McCarty^]
+    * link:https://developers.redhat.com/blog/2018/11/20/buildah-podman-containers-without-daemons/[Containers without daemons: Podman and Buildah available in RHEL 7.6 and RHEL 8 Beta - Tom Sweeney^]
+    * link:https://www.redhat.com/en/blog/7-linux-namespaces[The 7 Most Used Linux Namespaces - Steve Ovens^]
 
 
 [discrete]

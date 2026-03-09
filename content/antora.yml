@@ -1,5 +1,9 @@
 name: modules
-title: Showroom Collection
+title: LB1237 - The Definitive Red Hat Enterprise Linux 10 Hands-On Lab
 version: ~
+start_page: index.adoc
 nav:
   - modules/ROOT/nav.adoc
+asciidoc:
+  attributes:
+    lab_name: LB1237 - The Definitive Red Hat Enterprise Linux 10 Hands-On Lab

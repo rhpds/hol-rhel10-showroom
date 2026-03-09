@@ -77,7 +77,7 @@ And the following UserID and Password:
 ----
 
 ====
-image::rhel-10.0/wc-001.png[Cockpit Login]
+image::rhel-10.0/wc-001.png[Cockpit Login,link=self,window=blank]
 ====
 
 == Webconsole Overview
@@ -92,13 +92,13 @@ After you successfully sign-on, you will land on the overview page which present
 Also make note that your userid needs "Administrative Access", and since the userid is configured on the host as part of the "wheel" security group you are presented with the option to turn administrative access on.
 
 ====
-image::rhel-10.0/wc-002.png[Cockpit Overview]
+image::rhel-10.0/wc-002.png[Cockpit Overview,link=self,window=blank]
 ====
 
 Please proceed to enable administrative access and then verify.
 
 ====
-image::rhel-10.0/wc-003.png[Cockpit Overview]
+image::rhel-10.0/wc-003.png[Cockpit Overview,link=self,window=blank]
 ====
 
 == Enable Persistent Metrics
@@ -108,17 +108,17 @@ It's nice that certain statistics about your system are available for inspection
 Start by clicking on the link "View metrics and history" on the "Usage" tile.
 
 ====
-image::rhel-10.0/wc-004.png[View details and history]
+image::rhel-10.0/wc-004.png[View details and history,link=self,window=blank]
 ====
 
 Next, we need to enable the collection of metrics data.
 
 ====
-image::rhel-10.0/wc-005.png[Metrics Settings]
+image::rhel-10.0/wc-005.png[Metrics Settings,link=self,window=blank]
 ====
 
 ====
-image::rhel-10.0/wc-006.png[Enable Metrics]
+image::rhel-10.0/wc-006.png[Enable Metrics,link=self,window=blank]
 ====
 
 If your system has not already had the Performance Copilot packages installed, a dialog box should have appeared to confirm the automatic install.  In our case, the software is already installed and you can proceed to view some performance data.
@@ -126,7 +126,7 @@ If your system has not already had the Performance Copilot packages installed, a
 Take a moment to review the available performance information.  Since the workshop likely has not be up for very long, there is probably nothing interesting to see yet.  Towards the end of the workshop, return to this page and see your performance data.
 
 ====
-image::rhel-10.0/wc-007.png[Performance Charts]
+image::rhel-10.0/wc-007.png[Performance Charts,link=self,window=blank]
 ====
 
 == Change Performance Profile
@@ -134,13 +134,13 @@ image::rhel-10.0/wc-007.png[Performance Charts]
 RHEL 10 comes with several pre-canned performance tuning profiles from Tuned. Since this is a virtual machine, the default profile “virtual-guest” was selected. You can easily switch profile via the Web Console web UI. In this exercise, we will change the profile to “throughput-performance”
 
 ====
-image::rhel-10.0/wc-008.png[Cockpit Perf Profile]
+image::rhel-10.0/wc-008.png[Cockpit Perf Profile,link=self,window=blank]
 ====
 
 A dialog box will appear.  Scroll and find "throughput-performance" and select.
 
 ====
-image::rhel-10.0/wc-009.png[Cockpit Perf Throughout]
+image::rhel-10.0/wc-009.png[Cockpit Perf Throughout,link=self,window=blank]
 ====
 
 
@@ -150,7 +150,7 @@ image::rhel-10.0/wc-009.png[Cockpit Perf Throughout]
 Under the log section, you can inspect the system's logs.
 
 ====
-image::rhel-10.0/wc-010.png[Cockpit Logs]
+image::rhel-10.0/wc-010.png[Cockpit Logs,link=self,window=blank]
 ====
 
 Have a look at the search capabilities and notice that you can set criteria by:
@@ -160,7 +160,7 @@ Have a look at the search capabilities and notice that you can set criteria by:
   * Identifier
 
 ====
-image::rhel-10.0/wc-011.png[Cockpit Logs Criteria]
+image::rhel-10.0/wc-011.png[Cockpit Logs Criteria,link=self,window=blank]
 ====
 
 
@@ -172,7 +172,7 @@ Under the networking section, you can monitor and manage current networking acti
 Due to the nature of workshops, we refrain from making and saving changes to the network at this time but feel free to explore.
 
 ====
-image::rhel-10.0/wc-012.png[Cockpit Network]
+image::rhel-10.0/wc-012.png[Cockpit Network,link=self,window=blank]
 ====
 
 
@@ -184,19 +184,19 @@ Also under the networking section, you can configure your firewall rules.
 For the next exercise, let's enable a rule for NTP (Network Time Protocol). You would enable this rule if you wish to configure chronyd as an authoritative time server.  Begin by selecting the Networking category and "Edit rules and zones".
 
 ====
-image::rhel-10.0/wc-013.png[Cockpit Firewall]
+image::rhel-10.0/wc-013.png[Cockpit Firewall,link=self,window=blank]
 ====
 
 Now you should see a list of active services and ports.  Proceed to select "Add services"
 
 ====
-image::rhel-10.0/wc-014.png[Cockpit Firewall Service]
+image::rhel-10.0/wc-014.png[Cockpit Firewall Service,link=self,window=blank]
 ====
 
 In the dialog box enter 'ntp' as the filter, select 'ntp' and hit "Add services".
 
 ====
-image::rhel-10.0/wc-015.png[Cockpit Firewall Dialog]
+image::rhel-10.0/wc-015.png[Cockpit Firewall Dialog,link=self,window=blank]
 ====
 
 
@@ -208,56 +208,56 @@ Now that you enabled an NTP firewall rule, let’s make sure an NTP service is e
 Remember that RHEL 10 uses a provider called 'chrony' for ntp.  So you can search for either 'chrony' or 'ntp'.
 
 ====
-image::rhel-10.0/wc-016.png[Cockpit Services]
+image::rhel-10.0/wc-016.png[Cockpit Services,link=self,window=blank]
 ====
 
 Turns out, chronyd is already enabled and active. This is because chronyd is already acting as the default NTP client. With some minor configuration changes to `/etc/chrony.conf`, chronyd can also serve as an authoritative time server.
 
 ====
-image::rhel-10.0/wc-017.png[Cockpit Services]
+image::rhel-10.0/wc-017.png[Cockpit Services,link=self,window=blank]
 ====
 
 
 
 == File Browser
 
-A new feature to the Web Console is the 'File Browser'.  This powerful tool gives you access to navigate the filesystems (with appropriate permissions of course), make changes and even edit simple files.
+A new feature to the Web Console is the 'File Browser'.  This tool allows you to navigate the filesystems (with appropriate permissions of course), make changes and even edit simple files.
 
 So let's take a quick look at some of its capabilities.
 
 
 ====
-image::rhel-10.0/wc-018.png[Cockpit File Browser]
+image::rhel-10.0/wc-018.png[Cockpit File Browser,link=self,window=blank]
 ====
 
 Change your directory to /var/tmp/ either by navigating or editing the shown path.
 
 ====
-image::rhel-10.0/wc-019.png[Cockpit File Browser]
+image::rhel-10.0/wc-019.png[Cockpit File Browser,link=self,window=blank]
 ====
 
 Change the view to a 'detailed list' instead of the 'icon view', or maybe an alternative sort order.
 
 ====
-image::rhel-10.0/wc-020.png[Cockpit File Browser]
+image::rhel-10.0/wc-020.png[Cockpit File Browser,link=self,window=blank]
 ====
 
 Explore actions you can take on the current directory.
 
 ====
-image::rhel-10.0/wc-021.png[Cockpit File Browser]
+image::rhel-10.0/wc-021.png[Cockpit File Browser,link=self,window=blank]
 ====
 
 Explore the actions you can take by right-clicking on a file.
 
 ====
-image::rhel-10.0/wc-022.png[Cockpit File Browser]
+image::rhel-10.0/wc-022.png[Cockpit File Browser,link=self,window=blank]
 ====
 
 Using a right click, select 'Open Text File' and try editing the provided sample file 'webconsole-sample.txt'.
 
 ====
-image::rhel-10.0/wc-023.png[Cockpit File Browser]
+image::rhel-10.0/wc-023.png[Cockpit File Browser,link=self,window=blank]
 ====
 
 You can 'Save' or just 'Cancel' your changes.  Either way, proceed to close the editor dialog.
@@ -267,7 +267,7 @@ You can 'Save' or just 'Cancel' your changes.  Either way, proceed to close the 
 Another new feature of the Web Console is the introduction of "Applications".  These are optional modules you can install and enable to extended the capabilities of the web interface.  Just take a look and you'll see some additional capabilities you will take advantge of in later parts of this workshop.
 
 ====
-image::rhel-10.0/wc-024.png[Cockpit Applications]
+image::rhel-10.0/wc-024.png[Cockpit Applications,link=self,window=blank]
 ====
 
 == Conclusion

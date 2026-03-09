@@ -169,7 +169,7 @@ nft list chains
 
 Again there is nothing there, so let's create a new chain in our table called 'INPUT'.
 
-NOTE: nft leverages special characters (i.e. curly braces and semicolons) so we must use single quotes to protect our rules on the command-line.
+NOTE: nft uses special characters (i.e. curly braces and semicolons) so we must use single quotes to protect our rules on the command-line.
 
 [{format_cmd}]
 ----
@@ -465,11 +465,11 @@ workshop-finish-exercise.sh
 
 You can find more information:
 
-  * link:https://netfilter.org/projects/nftables[Project Page]
-  * link:https://en.wikipedia.org/wiki/Nftables[Wikipedia NFTables]
-  * link:https://wiki.nftables.org/wiki-nftables/index.php/Main_Page[NFTables How-To]
-  * link:https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes[Quick Reference]
-  * link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/configuring_firewalls_and_packet_filters/getting-started-with-nftables[Getting started with nftables]
+  * link:https://netfilter.org/projects/nftables[Project Page^]
+  * link:https://en.wikipedia.org/wiki/Nftables[Wikipedia NFTables^]
+  * link:https://wiki.nftables.org/wiki-nftables/index.php/Main_Page[NFTables How-To^]
+  * link:https://wiki.nftables.org/wiki-nftables/index.php/Quick_reference-nftables_in_10_minutes[Quick Reference^]
+  * link:https://docs.redhat.com/en/documentation/red_hat_enterprise_linux/10/html/configuring_firewalls_and_packet_filters/getting-started-with-nftables[Getting started with nftables^]
 
 [discrete]
 == End of Unit
