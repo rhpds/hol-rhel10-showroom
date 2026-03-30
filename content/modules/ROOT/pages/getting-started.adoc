@@ -20,6 +20,7 @@ workshop-tmux.sh TERM1
 ----
 
 Connect to node1 and run the setup playbooks:
+(this should be removed for 2026 Summit)
 
 [{format_cmd}]
 ----
