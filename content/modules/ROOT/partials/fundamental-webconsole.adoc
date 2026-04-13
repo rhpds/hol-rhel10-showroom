@@ -207,6 +207,11 @@ Now that you enabled an NTP firewall rule, let’s make sure an NTP service is e
 
 Remember that RHEL 10 uses a provider called 'chrony' for ntp.  So you can search for either 'chrony' or 'ntp'.
 
+[NOTE]
+====
+The Service Selector Filter does search for both "chrony" and "ntp" but when searching the Firewall service, it only recognizes "ntp".
+====
+
 ====
 image::rhel-10.0/wc-016.png[Cockpit Services,link=self,window=blank]
 ====
@@ -260,7 +265,7 @@ Using a right click, select 'Open Text File' and try editing the provided sample
 image::rhel-10.0/wc-023.png[Cockpit File Browser,link=self,window=blank]
 ====
 
-You can 'Save' or just 'Cancel' your changes.  Either way, proceed to close the editor dialog.
+You can 'Save' any change or simply 'Close' or 'Cancel' to discard any changes.  Either way, proceed to close the editor dialog.
 
 == Applications
 
