@@ -56,7 +56,13 @@ That completes the installation and configuration of the Web Console.
 
 NOTE:  Please note that by default, the webconsole is configured to use port 9090 as part of the local server URL.  In this exercise the Web Console browser access is embedded in a tab with no need to open a separate browser or window.
 
-To access the Web Console, navigate to the "Cockpit" Tab, and login with the following UserID and Password:
+To access the Web Console, navigate to the "Cockpit" Tab:
+
+====
+image::rhel-10.0/wc-001.png[Cockpit Login,link=self,window=blank]
+====
+
+Then login with the following UserID and Password:
 
 [{format_cmd}]
 ----
@@ -67,10 +73,6 @@ To access the Web Console, navigate to the "Cockpit" Tab, and login with the fol
 ----
 {workshop_cockpit_user_password}
 ----
-
-====
-image::rhel-10.0/wc-001.png[Cockpit Login,link=self,window=blank]
-====
 
 == Webconsole Overview
 
