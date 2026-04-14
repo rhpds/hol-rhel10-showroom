@@ -20,7 +20,7 @@ workshop-tmux.sh TERM1
 ----
 
 Connect to node1 and run the setup playbooks:
-(propose remove for Summit 2026)
+(this should be removed for 2026 Summit, REALLY)
 
 [{format_cmd}]
 ----
