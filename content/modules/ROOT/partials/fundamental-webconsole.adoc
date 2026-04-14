@@ -201,7 +201,7 @@ Remember that RHEL 10 uses a provider called 'chrony' for ntp.  So you can searc
 
 [NOTE]
 ====
-The Service Selector Filter does allow searching for either "chrony" or "ntp" but when searching in tthe Firewall service, it only recognizes "ntp" and not "chrony".
+The Service Selector Filter does allow searching for either "chrony" or "ntp" but when searching in the Firewall service, it only recognizes "ntp" and not "chrony".
 ====
 
 ====
