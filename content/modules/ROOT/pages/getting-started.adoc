@@ -19,13 +19,14 @@ Launch a 'tmux' (terminal multiplexer):
 workshop-tmux.sh TERM1
 ----
 
-Connect to node1 and run the setup playbooks:
-(this should be removed for 2026 Summit, REALLY)
+Using tmux will allow you to return to where you were should you get disconnected, and whatever was running will still be running or will have completed uninterrupted.  To reattach to a tmux session use:
 
 [{format_cmd}]
 ----
-ssh node1 'sudo -i ./RHEL10-Workshop/sample-configs/gpte/workshop-setup.sh' ; cat /etc/motd
+tmux a
 ----
+(a for attach)
 
-While this is running, please proceed to the Introduction.
+
+Please proceed to the Introduction.
 
