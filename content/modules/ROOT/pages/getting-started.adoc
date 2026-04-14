@@ -19,7 +19,7 @@ Launch a 'tmux' (terminal multiplexer):
 workshop-tmux.sh TERM1
 ----
 
-Using tmux will allow you to return to where you were should you get disconnected, and whatever was running will still be running or will have completed uninterrupted.  To reattach to a tmux session use:
+Using tmux will allow you to return to where you were should you get disconnected, and whatever was running will still be running or will have completed uninterrupted.  To reattach to a tmux session after having been disconnected use:
 
 [{format_cmd}]
 ----
