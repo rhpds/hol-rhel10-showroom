@@ -20,8 +20,9 @@ image::rhel-logo-black.jpg[Red Hat Enterprise Linux logo,55%,55%,link=self,windo
 == Presented By
 
   * Christoph Doerbeck
-  * Eddie Chen
   * Gordon Keegan
+  * Lynn Dixon
+  * Jay Cromer
 
 
 
