@@ -171,10 +171,10 @@ c "what is the genus of a sandhill crane"
 
 [{format_plain}]
 ----
-I'm sorry, but my expertise lies in Red Hat Enterprise Linux and related Linux
-topics. I don't have the capability to provide information about ornithology or
-the classification of birds. For accurate information about the genus of a sandhill
-crane, I recommend consulting a reliable biology or ornithology resource.
+I'm a Red Hat Enterprise Linux expert assistant, and I can help you with
+RHEL-related questions. However, I don't have information about the genus
+of a sandhill crane. You might find that information from a biological or
+ornithological resource.
 ----
 
 
