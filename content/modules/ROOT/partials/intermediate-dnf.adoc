@@ -196,20 +196,21 @@ dnf li
 
 [{format_output}]
 ----
-2025-03-11 22:55        Koji    x86_64  gdbm-1.23
-2025-03-11 22:55        Koji    x86_64  gdbm-libs-1.23
-2025-03-11 22:55        Red Hat, Inc.   noarch  appstream-data-10
-2025-03-11 22:55        Red Hat, Inc.   noarch  basesystem-11
-2025-03-11 22:55        Red Hat, Inc.   noarch  ca-certificates-2024.2.69_v8.0.303
-2025-03-11 22:55        Red Hat, Inc.   noarch  crontabs-1.11^20190603git9e74f2d
-2025-03-11 22:55        Red Hat, Inc.   noarch  crypto-policies-20250214
-2025-03-11 22:55        Red Hat, Inc.   noarch  dbus-common-1.14.10
-2025-03-11 22:55        Red Hat, Inc.   noarch  dnf-plugins-core-4.7.0
-2025-03-11 22:55        Red Hat, Inc.   noarch  efi-filesystem-6
-2025-03-11 22:55        Red Hat, Inc.   noarch  elfutils-default-yama-scope-0.192
-2025-03-11 22:55        Red Hat, Inc.   noarch  fonts-filesystem-2.0.5
-2025-03-11 22:55        Red Hat, Inc.   noarch  hwdata-0.379
-2025-03-11 22:55        Red Hat, Inc.   noarch  initscripts-service-10.26
+2025-10-31 12:46        Red Hat, Inc.   noarch  appstream-data-10
+2025-10-31 12:46        Red Hat, Inc.   noarch  basesystem-11
+2025-10-31 12:46        Red Hat, Inc.   noarch  cockpit-bridge-344
+2025-10-31 12:46        Red Hat, Inc.   noarch  container-selinux-2.240.0
+2025-10-31 12:46        Red Hat, Inc.   noarch  crontabs-1.11^20190603git9e74f2d
+2025-10-31 12:46        Red Hat, Inc.   noarch  dbus-common-1.14.10
+2025-10-31 12:46        Red Hat, Inc.   noarch  dnf-data-4.20.0
+2025-10-31 12:46        Red Hat, Inc.   noarch  efi-filesystem-6
+2025-10-31 12:46        Red Hat, Inc.   noarch  elfutils-default-yama-scope-0.193
+2025-10-31 12:46        Red Hat, Inc.   noarch  fonts-filesystem-2.0.5
+2025-10-31 12:46        Red Hat, Inc.   noarch  hwdata-0.379
+2025-10-31 12:46        Red Hat, Inc.   noarch  kbd-legacy-2.6.4
+2025-10-31 12:46        Red Hat, Inc.   noarch  kbd-misc-2.6.4
+
+<...output truncated...>
 ----
 
 Or, how about an alias for listing the available packages
@@ -226,20 +227,18 @@ dnf la
 
 [{format_output}]
 ----
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  NetworkManager-config-connectivity-redhat-1.48.10
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  NetworkManager-config-connectivity-redhat-1.51.5
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  NetworkManager-config-connectivity-redhat-1.51.6
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  NetworkManager-config-connectivity-redhat-1.51.90
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  NetworkManager-config-connectivity-redhat-1.52.0
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  WALinuxAgent-2.9.1.1
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  WALinuxAgent-udev-2.9.1.1
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  adobe-mappings-cmap-20230622
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  adobe-mappings-cmap-deprecated-20230622
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  adobe-mappings-pdf-20190401
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  adwaita-cursor-theme-46.0
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  adwaita-icon-theme-46.0
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  alsa-firmware-1.2.4
-rhel-10-for-x86_64-appstream-beta-rpms  noarch  alsa-sof-firmware-2024.03
+rhel-10-for-x86_64-appstream-rpms       noarch  NetworkManager-config-connectivity-redhat-1.52.0
+rhel-10-for-x86_64-appstream-rpms       noarch  NetworkManager-config-connectivity-redhat-1.54.0
+rhel-10-for-x86_64-appstream-rpms       noarch  WALinuxAgent-2.13.1.1
+rhel-10-for-x86_64-appstream-rpms       noarch  WALinuxAgent-2.9.1.1
+rhel-10-for-x86_64-appstream-rpms       noarch  WALinuxAgent-udev-2.13.1.1
+rhel-10-for-x86_64-appstream-rpms       noarch  WALinuxAgent-udev-2.9.1.1
+rhel-10-for-x86_64-appstream-rpms       noarch  adobe-mappings-cmap-20230622
+rhel-10-for-x86_64-appstream-rpms       noarch  adobe-mappings-cmap-deprecated-20230622
+rhel-10-for-x86_64-appstream-rpms       noarch  adobe-mappings-pdf-20190401
+rhel-10-for-x86_64-appstream-rpms       noarch  adwaita-cursor-theme-46.0
+rhel-10-for-x86_64-appstream-rpms       noarch  adwaita-icon-theme-46.0
+rhel-10-for-x86_64-appstream-rpms       noarch  alsa-firmware-1.2.4
 
 <...output truncated...>
 ----
@@ -359,6 +358,16 @@ Repos typically fall into 2 categories:
 dnf repolist
 ----
 
+[{format_output}]
+----
+Updating Subscription Management repositories.
+repo id                                                             repo name
+rhel-10-for-x86_64-appstream-rpms                                   Red Hat Enterprise Linux 10 for x86_64 - AppStream (RPMs)
+rhel-10-for-x86_64-baseos-rpms                                      Red Hat Enterprise Linux 10 for x86_64 - BaseOS (RPMs)
+rhel-10-for-x86_64-extensions-rpms                                  Red Hat Enterprise Linux 10 for x86_64 - Extensions (RPMs)
+rhel-10-for-x86_64-supplementary-rpms                               Red Hat Enterprise Linux 10 for x86_64 - Supplementary (RPMs)
+----
+
 === Add Repo
 
 Repo configuration files are stored in `/etc/yum.repos.d/`
@@ -392,10 +401,12 @@ dnf repolist
 [{format_output}]
 ----
 Updating Subscription Management repositories.
-repo id                                  repo name
-epel                                     Extra Packages for Enterprise Linux 10 - x86_64
-rhel-10-for-x86_64-appstream-beta-rpms   Red Hat Enterprise Linux 10 for x86_64 - AppStream Beta (RPMs)
-rhel-10-for-x86_64-baseos-beta-rpms      Red Hat Enterprise Linux 10 for x86_64 - BaseOS Beta (RPMs)
+repo id                                                             repo name
+epel                                                                Extra Packages for Enterprise Linux 10 - x86_64
+rhel-10-for-x86_64-appstream-rpms                                   Red Hat Enterprise Linux 10 for x86_64 - AppStream (RPMs)
+rhel-10-for-x86_64-baseos-rpms                                      Red Hat Enterprise Linux 10 for x86_64 - BaseOS (RPMs)
+rhel-10-for-x86_64-extensions-rpms                                  Red Hat Enterprise Linux 10 for x86_64 - Extensions (RPMs)
+rhel-10-for-x86_64-supplementary-rpms                               Red Hat Enterprise Linux 10 for x86_64 - Supplementary (RPMs)
 ----
 
 Now let's list all of the repos provided with configuration we just installed.  Notice how most of the
