@@ -72,13 +72,8 @@ dnf provides netstat
 
 [{format_output}]
 ----
-net-tools-2.0-0.72.20160912git.el10.x86_64 : Basic networking tools
-Repo        : rhel-10-for-x86_64-baseos-beta-rpms
-Matched from:
-Filename    : /usr/bin/netstat
-
 net-tools-2.0-0.73.20160912git.el10.x86_64 : Basic networking tools
-Repo        : rhel-10-for-x86_64-baseos-beta-rpms
+Repo        : rhel-10-for-x86_64-baseos-rpms
 Matched from:
 Filename    : /usr/bin/netstat
 ----
@@ -112,6 +107,28 @@ Let us begin by getting information about a package called 'ncurses'
 dnf info ncurses
 ----
 
+[{format_output}]
+----
+Name         : ncurses
+Version      : 6.4
+Release      : 14.20240127.el10
+Architecture : x86_64
+Size         : 625 k
+Source       : ncurses-6.4-14.20240127.el10.src.rpm
+Repository   : @System
+Summary      : Ncurses support utilities
+URL          : https://invisible-island.net/ncurses/ncurses.html
+License      : MIT-open-group
+Description  : The curses library routines are a terminal-independent method of
+             : updating character screens with reasonable optimization.  The ncurses
+             : (new curses) library is a freely distributable replacement for the
+             : discontinued 4.4 BSD classic curses library.
+             : 
+             : This package contains support utilities, including a terminfo compiler
+             : tic, a decompiler infocmp, clear, tput, tset, and a termcap conversion
+             : tool captoinfo.
+----
+
 What other packages does this depend on.
 
 [{format_cmd}]
@@ -121,7 +138,6 @@ dnf repoquery --depends ncurses
 
 [{format_output}]
 ----
-Last metadata expiration check: 0:01:53 ago on Thu 01 May 2025 03:03:26 PM UTC.
 libc.so.6()(64bit)
 libc.so.6(GLIBC_2.14)(64bit)
 libc.so.6(GLIBC_2.2.5)(64bit)
@@ -134,7 +150,6 @@ libc.so.6(GLIBC_2.7)(64bit)
 libc.so.6(GLIBC_ABI_DT_RELR)(64bit)
 libtic.so.6()(64bit)
 libtinfo.so.6()(64bit)
-ncurses-libs(x86-64) = 6.4-13.20240127.el10
 ncurses-libs(x86-64) = 6.4-14.20240127.el10
 rtld(GNU_HASH)
 ----
@@ -149,19 +164,15 @@ dnf repoquery --whatdepends ncurses
 [{format_output}]
 ----
 frr-0:10.1-10.el10.x86_64
-frr-0:10.1-3.el10.x86_64
-frr-0:10.1-7.el10.x86_64
-perl-Term-Cap-0:1.18-510.el10.noarch
+frr-0:10.1-11.el10.x86_64
 perl-Term-Cap-0:1.18-511.el10.noarch
-varnish-0:7.4.2-4.el10.x86_64
-varnish-0:7.6.0-3.el10.x86_64
 varnish-0:7.6.1-2.el10.x86_64
+varnish-0:7.6.1-2.el10_0.1.x86_64
+varnish-0:7.6.1-4.el10.x86_64
 ----
 
 (NOTE: this output may differ from your result depending on what packages are available)
 From this ouptut you can determine what other tools are impacted if you were to attempt a *dnf remove* or *dnf upgrade* of ncurses.
-
-
 
 
 === Aliases
@@ -287,14 +298,22 @@ Available Environment Groups:
    Server
    Minimal Install
    Workstation
-   Virtualization Host
    Custom Operating System
+   Virtualization Host
 Available Groups:
-   Container Management
-   .NET Development
+   Smart Card Support
+   Legacy UNIX Compatibility
    Console Internet Tools
+   Headless Management
+   Network Servers
+   Security Tools
+   Container Management
+   Graphical Administration Tools
    RPM Development Tools
+   Scientific Support
    System Tools
+   .NET Development
+   Development Tools
 ----
 
 To install a group you use the *groupinstall* command.  Since we are not interested in installing
