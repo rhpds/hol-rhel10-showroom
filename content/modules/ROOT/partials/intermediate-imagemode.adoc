@@ -131,8 +131,8 @@ Ensure we have an SSH key.
 [{format_cmd}]
 ----
 SSH_IDENTITY=$(eval echo $(ssh -G localhost | awk '$1=="identityfile"{print $2;exit;}'))
-[[ -f ${SSH_IDENTITY} ]] || ssh-keygen ${SSH_IDENTITY} -P '' 
-export SSH_KEY=$(cat ${SSH_IDENTITY%.*}.pub)
+[[ -f ${SSH_IDENTITY} ]] || ssh-keygen -f ${SSH_IDENTITY} -P '' -t rsa -b 1024
+export SSH_KEY=$(cat ${SSH_IDENTITY}.pub)
 
 echo ${SSH_KEY}
 ----
