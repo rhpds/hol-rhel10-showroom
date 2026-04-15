@@ -116,25 +116,48 @@ c "hwo mcuh memonry is left on symtset"
 
 [{format_plain}]
 ----
-It seems there might be a typo in your query. If you're asking about the amount
-of memory left on your system, you can check that using the free -h command in
-the terminal. This will display the total amount of free and used physical and
-swap memory in the system, as well as the buffers and caches used by the kernel.
+To check how much memory is left on a Red Hat Enterprise Linux system, you can use the `free` command.
 
-Here's how you can do it:
+Open a terminal and run:
 
-1. Open a terminal window.
-2. Type free -h and press Enter.
+```bash
+free -h
+```
 
-The output will look something like this:
-
-Snippet ────────────────
-total        used        free      shared  buff/cache   available
-Mem:           7.7G       1.2G       5.1G       122M       1.3G       5.8G
-Swap:          2.0G       894M       1.1G
-────────────────────────
+This command will display memory usage in a human-readable format. Look for the `total`, `used`, `free`, and `available` columns. The `available` column is generally the most important as it indicates how much memory is available for new applications without swapping.
 ----
 
+That is helpful, but it is interesting to note that you can ask Lightspeed the exact same question and get a different response:
+
+[{format_cmd}]
+----
+c "hwo mcuh memonry is left on symtset"
+----
+
+[{format_plain}]
+----
+To check how much memory is left on your Red Hat Enterprise Linux system, you can use the `free` command.
+
+Open your terminal and run:
+
+```bash
+free -h
+```
+
+The `-h` option displays the output in human-readable format (e.g., GB, MB).
+
+Look at the `Mem:` line. The `available` column shows an estimate of how much memory is available for starting new applications, without swapping. This is generally the most relevant number for understanding "how much memory is left."
+
+For example, an output might look like this:
+
+```
+              total        used        free      shared  buff/cache   available
+Mem:           15Gi       2.0Gi       8.0Gi       1.0Gi       5.0Gi        12Gi
+Swap:         8.0Gi       0.0B        8.0Gi
+```
+
+In this example, `12Gi` (12 Gigabytes) of memory is available.
+----
 
 
 == What RHEL Lightspeed is not
