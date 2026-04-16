@@ -19,14 +19,7 @@ Launch a 'tmux' (terminal multiplexer):
 workshop-tmux.sh TERM1
 ----
 
-Using tmux will allow you to return to where you were should you get disconnected, and whatever was running will still be running or will have completed uninterrupted.  To reattach to a tmux session after having been disconnected use:
-
-[{format_cmd}]
-----
-tmux a
-----
-(a for attach)
-
+NOTE: Using tmux allows you to restore a tty session (terminal) if it gets disconnected.  Any commands that were running would have continued without interruption, and you will be able to continue your work without needing to repeat any previous steps.  To reattach a session simply re-run the scripted command above: `workshop-tmux.sh TERM1`
 
 Please proceed to the Introduction.
 
