@@ -140,7 +140,7 @@ Release      : 16.el10
 Architecture : noarch
 Size         : 457 k
 Source       : bash-completion-2.11-16.el10.src.rpm
-Repository   : rhel-10-for-x86_64-baseos-beta-rpms
+Repository   : my-rhel10-baseos-rpms
 Summary      : Programmable completion for Bash
 URL          : https://github.com/scop/bash-completion
 License      : GPL-2.0-or-later
