@@ -92,8 +92,8 @@ stratis pool
 
 [{format_plain}]
 ----
-Name                  Total / Used / Free    Properties                                   UUID   Alerts
-summitpool   12 GiB / 538 MiB / 11.47 GiB   ~Ca,~Cr, Op   e7006323-5c8a-4ab8-b5f0-a693c6fb5b81         
+Name                   Total / Used / Free        Properties                                   UUID   Alerts
+summitpool   12 GiB / 1.64 GiB / 10.36 GiB   ~Le,~Ca,~Cr, Op   a77a70b6-d2a0-48f1-a615-2634ca8b9ed1
 ----
 
 == Add Cache Device
