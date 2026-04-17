@@ -9,6 +9,7 @@
 ***  xref:spotlight-imagemode-101.adoc[Bootable Containers (image mode, bootc)]
 **  RHEL Image Builder
 ***  xref:spotlight-imagebuilder-101.adoc[Image Builder (composer)]
+***  xref:spotlight-virtualization-101.adoc[VM Mgmt (libvirt)]
 **  Containers with Podman
 ***  xref:spotlight-podman-100.adoc[Containers pt.1 (podman)]
 ***  xref:spotlight-buildah-101.adoc[Containers pt.2 (buildah,skopeo)]
