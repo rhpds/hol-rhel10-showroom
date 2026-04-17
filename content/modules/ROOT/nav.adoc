@@ -15,6 +15,9 @@
 ***  xref:spotlight-buildah-101.adoc[Containers pt.2 (buildah,skopeo)]
 ***  xref:spotlight-podman-200.adoc[Containers pt.3 (namespaces)]
 **  In-Place Upgrades (leapp)
+****  xref:spotlight-leapp-200.adoc[In-Place Upgrades (leapp)] ////
+**  Web Console (cockpit)
+****  xref:spotlight-webconsole100.adoc[Web Console (cockpit)]
 
 *  All Exercises
 **  By Skill Level
