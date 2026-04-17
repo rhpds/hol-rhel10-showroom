@@ -187,7 +187,11 @@ We need to capture the filename of our public SSH key.
 
 [{format_cmd}]
 ----
-export PUBKEY=$(ls ~/.ssh/*.pub | head -1)
+SSH_IDENTITY=$(eval echo $(ssh -G localhost | awk '$1=="identityfile"{print $2;exit;}'))
+[[ -f ${SSH_IDENTITY} ]] || ssh-keygen -f ${SSH_IDENTITY} -P '' -t rsa
+export SSH_KEY=$(cat ${SSH_IDENTITY}.pub)
+
+echo ${SSH_KEY}
 ----
 
 Now you can proceed to customize the virt image.
@@ -202,7 +206,7 @@ time virt-customize \
     -a /var/lib/libvirt/images/vmguest.qcow2 \
     --hostname vmguest \
     --root-password password:redhat \
-    --ssh-inject root:file:${PUBKEY} \
+    --ssh-inject root:file:${SSH_KEY} \
     --copy-in /usr/local/etc/index.html:/var/www/html \
     --selinux-relabel \
     --run-command 'echo "PermitRootLogin yes" >> /etc/ssh/sshd_config.d/rootlogin.conf' \

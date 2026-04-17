@@ -87,7 +87,7 @@ podman info
 ----
 host:
   arch: amd64
-  buildahVersion: 1.41.4
+  buildahVersion: 1.41.8
   cgroupControllers:
   - cpuset
   - cpu
