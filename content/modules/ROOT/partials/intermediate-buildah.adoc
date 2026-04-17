@@ -80,7 +80,7 @@ The steps you performed above is equivalent to the following OCIFile (or Dockerf
 
 [{format_output}]
 ----
-FROM ubi10-beta/ubi
+FROM registry.access.redhat.com/ubi10/ubi:latest
 COPY /root/dan-cries.txt /var/www/html/
 ----
 
