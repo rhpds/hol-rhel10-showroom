@@ -10,9 +10,13 @@ WARNING:  Executing these setup tasks is a requirement before proceeding with th
 
 == Getting Started (DO THIS FIRST!)
 
-These steps should be easy to click-through if you are using the showroom terminal.
+Instructions for the lab should be easy to click-through if you are using the showroom terminal.  
 
-Launch a 'tmux' (terminal multiplexer):
+  * Use your mouse to click-on the clipboard next to a specified command
+  * Move the cursor focus over to a terminal
+  * Use *SHIFT-INS* or *CTL-SHIFT-V* to paste the command
+
+Now let's start by launching a 'tmux' (terminal multiplexer):
 
 [{format_cmd}]
 ----
@@ -21,5 +25,20 @@ workshop-tmux.sh TERM1
 
 NOTE: Using tmux allows you to restore a tty session (terminal) if it gets disconnected.  Any commands that were running would have continued without interruption, and you will be able to continue your work without needing to repeat any previous steps.  To reattach a session simply re-run the scripted command above: `workshop-tmux.sh TERM1`
 
-Please proceed to the Introduction.
+Next, please verify that the Workshop Setup is COMPLETE by executing the following:
 
+[{format_cmd}]
+----
+cat /etc/motd
+----
+
+[{format_output}]
+----
+# ------------------
+#      Host FQDN ... bastion.sandbox-tv68p-ocp4-cluster.svc.cluster.local
+#     OS Version ... RedHat 9.7
+# Workshop Setup ... COMPLETE
+# ------------------
+----
+
+If it shows INCOMPLETE stand-by for further instructions, otherwise please proceed to the Introduction.
