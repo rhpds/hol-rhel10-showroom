@@ -75,8 +75,8 @@ Units are NOT designed to:
 
 This workshop environment provides:
 
-    * **Jump Host**: All activities begin from the jumpt-host (bastion)
-    * **Host Systems**: Exercises are performed on the RHEL 10 nodes (node1, node2 & node3)
+    * **Jump Host**: All activities begin from the jump-host (bastion)
+    * **Host Systems**: Exercises are performed on the 3 RHEL 10.1 nodes (node1, node2 & node3) and on the RHEL 9.7 leapp node.
     * **Networking**: Pre-configured network connectivity between nodes
     * **Storage**: Multiple block devices per node for storage exercises
     * **Pre-installed Software**: Essential packages and workshop scripts already configured
@@ -87,7 +87,7 @@ This workshop environment provides:
 == How to Proceed
 
 Use the catalog on the left with drop-down arrows to navigate and select the activities you want to work on.
-Activites for the workshop are structure into 3 sequential *Learning Paths*:
+Activites for the workshop are structured into 3 sequential *Learning Paths*:
 
   * RHEL 10 Spotlight
   * All Exercises
