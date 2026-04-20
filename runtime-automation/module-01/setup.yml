@@ -1,0 +1,15 @@
+---
+# Module 01 — Setup (stub)
+# Runs once when the module is first loaded.
+# TODO: add any pre-module setup tasks here.
+
+- name: Setup Module 01
+  hosts: bastion
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ bastion_user | default('lab-user') }}"
+  tasks:
+    - name: No setup needed
+      ansible.builtin.debug:
+        msg: "Setup complete"

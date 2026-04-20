@@ -15,7 +15,7 @@ tabs:
       path: /wetty
       port: 443
       secondary_name: '>_Terminal-02'
-      secondary_path: /terminal2
+      secondary_path: /terminal2/
       secondary_port: 443
     - name: 'Cockpit'
       url: "{{ workshop_cockpit_url }}"
