@@ -1,7 +1,7 @@
 ---
 site:
   title: LB1237 - The Definitive Red Hat Enterprise Linux 10 Hands-On Lab
-  url: https://github.com/rhpds/showroom_template_nookbag
+  url: https://github.com/rhpds/hol-rhel10-showroom
   start_page: modules::index.adoc
 
 content:
@@ -14,11 +14,18 @@ ui:
     url: https://github.com/rhpds/rhdp_showroom_theme/releases/download/rh-summit-2025/ui-bundle.zip
     snapshot: true
   supplemental_files:
-    - path: ./supplemental-ui
+    - path: ./content/supplemental-ui
+    - path: ./content/lib
+    - path: .nojekyll
+    - path: ui.yml
+      contents: "static_files: [ .nojekyll ]"
 
 antora:
   extensions:
     - '@sntke/antora-mermaid-extension'
+    - require: ./content/lib/dev-mode.js
+      enabled: false
+    - require: ./content/lib/inject-buttons.js
 
 runtime:
   fetch: true
