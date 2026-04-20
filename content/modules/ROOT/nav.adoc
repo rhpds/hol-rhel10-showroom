@@ -10,10 +10,9 @@
 **  RHEL Image Builder
 ***  xref:spotlight-imagebuilder-101.adoc[Image Builder (composer)]
 ***  xref:spotlight-virtualization-101.adoc[VM Mgmt (libvirt)]
-**  In-Place Upgrades (leapp)
-***  xref:spotlight-leapp-200.adoc[In-Place Upgrades (leapp)]
-**  Web Console (cockpit)
-***  xref:spotlight-webconsole-100.adoc[Web Console (cockpit)]
+**  xref:spotlight-webconsole-100.adoc[Web Console (cockpit)]
+**  xref:spotlight-leapp-200.adoc[In-Place Upgrades (leapp)]
+**  xref:spotlight-finished-100.adoc[Finished]
 
 *  All Exercises
 **  By Skill Level
