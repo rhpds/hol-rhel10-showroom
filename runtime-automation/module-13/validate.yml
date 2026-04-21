@@ -1,0 +1,177 @@
+---
+- name: Bootable Containers (imagemode, bootc) Validation
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    ocifile: /usr/local/etc/sample-rhel-bootc.ocifile
+    custom_toml: /root/custom-bootc.toml
+    qcow2_src: /root/qcow2/disk.qcow2
+    qcow2_dest: /var/lib/libvirt/images/bootc-vm.qcow2
+    vm_name: bootc-vm
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — OCI file pre-staged at /usr/local/etc/sample-rhel-bootc.ocifile
+    # -------------------------------------------------------
+    - name: Stat sample-rhel-bootc.ocifile
+      ansible.builtin.stat:
+        path: "{{ ocifile }}"
+      register: r_ocifile
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — localhost/custom-bootc image exists in podman
+    # -------------------------------------------------------
+    - name: Check localhost/custom-bootc image exists
+      ansible.builtin.shell: |
+        podman images --quiet localhost/custom-bootc | grep -q .
+      args:
+        executable: /bin/bash
+      register: r_bootc_image
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — /root/custom-bootc.toml exists and has no literal SSHKEY token
+    # -------------------------------------------------------
+    - name: Stat custom-bootc.toml
+      ansible.builtin.stat:
+        path: "{{ custom_toml }}"
+      register: r_toml_stat
+      ignore_errors: true
+
+    - name: Check custom-bootc.toml does not contain literal SSHKEY token
+      ansible.builtin.shell: |
+        grep -q 'SSHKEY' {{ custom_toml }} && echo "contains_token" || echo "substituted"
+      args:
+        executable: /bin/bash
+      register: r_toml_content
+      changed_when: false
+      when: r_toml_stat.stat.exists | default(false)
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 4 — /root/qcow2/disk.qcow2 exists (bootc-image-builder output)
+    # -------------------------------------------------------
+    - name: Stat /root/qcow2/disk.qcow2
+      ansible.builtin.stat:
+        path: "{{ qcow2_src }}"
+      register: r_qcow2_src
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 5 — /var/lib/libvirt/images/bootc-vm.qcow2 exists (copied for libvirt)
+    # -------------------------------------------------------
+    - name: Stat /var/lib/libvirt/images/bootc-vm.qcow2
+      ansible.builtin.stat:
+        path: "{{ qcow2_dest }}"
+      register: r_qcow2_dest
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 6 — bootc-vm domain is running (virsh list)
+    # -------------------------------------------------------
+    - name: Check bootc-vm is in running state via virsh
+      ansible.builtin.shell: |
+        virsh list --state-running | grep -q 'bootc-vm'
+      args:
+        executable: /bin/bash
+      register: r_vm_running
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 7 — Get VM IP and verify HTTP returns '* SUCCESS: hello bootc *'
+    # -------------------------------------------------------
+    - name: Get bootc-vm IP address from virsh
+      ansible.builtin.shell: |
+        virsh domifaddr bootc-vm | sed -e '1,2d' -e '$d' | awk '{ split($4,a,/\//); print a[1] }'
+      args:
+        executable: /bin/bash
+      register: r_vm_ip
+      changed_when: false
+      when: r_vm_running.rc | default(1) == 0
+      ignore_errors: true
+
+    - name: HTTP GET to bootc-vm and check for SUCCESS body
+      ansible.builtin.uri:
+        url: "http://{{ r_vm_ip.stdout | trim }}"
+        method: GET
+        return_content: true
+        validate_certs: false
+        timeout: 10
+        status_code: [200]
+      register: r_http
+      when:
+        - r_vm_running.rc | default(1) == 0
+        - r_vm_ip.stdout | default('') | trim | length > 5
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Build result facts
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_ocifile.stat.exists | default(false) }}"
+        _task2_ok: "{{ r_bootc_image.rc | default(1) == 0 }}"
+        _task3_ok: >-
+          {{
+            (r_toml_stat.stat.exists | default(false)) and
+            ('substituted' in (r_toml_content.stdout | default('')))
+          }}
+        _task4_ok: "{{ r_qcow2_src.stat.exists | default(false) }}"
+        _task5_ok: "{{ r_qcow2_dest.stat.exists | default(false) }}"
+        _task6_ok: "{{ r_vm_running.rc | default(1) == 0 }}"
+        _task7_ok: >-
+          {{
+            r_http is defined and
+            r_http is not skipped and
+            r_http is not failed and
+            'SUCCESS' in (r_http.content | default(''))
+          }}
+
+    # -------------------------------------------------------
+    # Final validation check
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'OK' if _task1_ok else 'FAILED' }} Task 1: OCI file {{ ocifile }} — {{ 'present' if _task1_ok else 'missing — check that hol_rhel10_automation collection setup ran correctly' }}
+          {{ 'OK' if _task2_ok else 'FAILED' }} Task 2: localhost/custom-bootc image — {{ 'present' if _task2_ok else 'not found — run: podman build --file ' + ocifile + ' --tag localhost/custom-bootc' }}
+          {{ 'OK' if _task3_ok else 'FAILED' }} Task 3: custom-bootc.toml — {{ 'SSH key substituted' if _task3_ok else 'missing or still contains literal SSHKEY — run Solve or manually replace SSHKEY with your public key in ' + custom_toml }}
+          {{ 'OK' if _task4_ok else 'FAILED' }} Task 4: /root/qcow2/disk.qcow2 — {{ 'present' if _task4_ok else 'missing — run bootc-image-builder to build the QCOW2 image (this can take several minutes)' }}
+          {{ 'OK' if _task5_ok else 'FAILED' }} Task 5: /var/lib/libvirt/images/bootc-vm.qcow2 — {{ 'present' if _task5_ok else 'missing — copy disk.qcow2 to ' + qcow2_dest }}
+          {{ 'OK' if _task6_ok else 'FAILED' }} Task 6: bootc-vm domain — {{ 'running' if _task6_ok else 'not running — run: virsh start bootc-vm (or virt-install if not yet created)' }}
+          {{ 'OK' if _task7_ok else 'FAILED' }} Task 7: HTTP SUCCESS response — {{ 'received' if _task7_ok else 'not received — VM may still be booting; wait 2-3 minutes and click Validate again' }}
+      when: >-
+        not (
+          _task1_ok | bool and
+          _task2_ok | bool and
+          _task3_ok | bool and
+          _task4_ok | bool and
+          _task5_ok | bool and
+          _task6_ok | bool and
+          _task7_ok | bool
+        )
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: /usr/local/etc/sample-rhel-bootc.ocifile present
+          Task 2: localhost/custom-bootc image built and present in podman
+          Task 3: /root/custom-bootc.toml written with SSH key substituted (no SSHKEY token)
+          Task 4: /root/qcow2/disk.qcow2 built by bootc-image-builder
+          Task 5: /var/lib/libvirt/images/bootc-vm.qcow2 copied for libvirt
+          Task 6: bootc-vm domain is running
+          Task 7: HTTP response from bootc-vm contains * SUCCESS: hello bootc *
+      when: >-
+        _task1_ok | bool and
+        _task2_ok | bool and
+        _task3_ok | bool and
+        _task4_ok | bool and
+        _task5_ok | bool and
+        _task6_ok | bool and
+        _task7_ok | bool
