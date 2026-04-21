@@ -1,0 +1,5 @@
+[rhel10_nodes]
+node1 ansible_host=10.129.18.242 ansible_user=lab-user ansible_ssh_private_key_file=/app/.ssh/id_rsa ansible_ssh_common_args="-o StrictHostKeyChecking=no"
+
+[bastion]
+bastion ansible_host=ssh.ocpvdev01.rhdp.net ansible_port=32547 ansible_user=lab-user ansible_ssh_private_key_file=/app/.ssh/id_rsa ansible_ssh_common_args="-o StrictHostKeyChecking=no"
