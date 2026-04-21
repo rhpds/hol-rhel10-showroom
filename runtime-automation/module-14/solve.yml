@@ -1,0 +1,144 @@
+---
+- name: Image Builder (composer) — Intermediate Solve
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    libvirt_images_dir: /var/lib/libvirt/images
+    blueprint_name: sample-webserver
+    blueprint_toml: /usr/local/etc/imagebuilder-sample.toml
+    compose_image_type: qcow2
+    compose_wait_retries: 60
+    compose_wait_delay: 15
+
+  tasks:
+
+    - name: Run workshop host-check script
+      ansible.builtin.shell: workshop-imagebuilder-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      failed_when: r_checkhost.rc != 0
+
+    # On RHEL 10: composer-cli is provided by weldr-client; cockpit-composer by cockpit-image-builder
+    - name: Install osbuild / composer packages
+      ansible.builtin.dnf:
+        name:
+          - osbuild-composer
+          - weldr-client
+          - cockpit-image-builder
+          - guestfs-tools
+        state: present
+
+    - name: Stop osbuild-composer socket and service before reconfiguration
+      ansible.builtin.shell: >
+        systemctl stop osbuild-composer.socket osbuild-composer.service osbuild-worker@1.service || true
+      changed_when: false
+
+    - name: Run workshop imagebuilder config script (Satellite repo config)
+      ansible.builtin.shell: workshop-imagebuilder-config.sh
+      register: r_config
+      changed_when: false
+      failed_when: r_config.rc != 0
+
+    - name: Start osbuild-composer socket and local worker socket
+      ansible.builtin.shell: >
+        systemctl start osbuild-composer.socket osbuild-local-worker.socket
+      changed_when: false
+
+    - name: Reset failed state and start osbuild-worker
+      ansible.builtin.shell: >
+        systemctl reset-failed osbuild-worker@1.service;
+        systemctl start osbuild-worker@1.service
+      changed_when: false
+
+    - name: Wait for osbuild-worker to be active
+      ansible.builtin.shell: systemctl is-active osbuild-worker@1.service
+      register: r_worker_active
+      until: r_worker_active.stdout == "active"
+      retries: 12
+      delay: 5
+      changed_when: false
+
+    - name: Push sample-webserver blueprint
+      ansible.builtin.shell: composer-cli blueprints push {{ blueprint_toml }}
+      register: r_push
+      changed_when: false
+
+    - name: Verify blueprint appears in list
+      ansible.builtin.shell: composer-cli blueprints list
+      register: r_blueprints
+      changed_when: false
+      failed_when: blueprint_name not in r_blueprints.stdout
+
+    - name: Depsolve blueprint (verify all packages resolvable)
+      ansible.builtin.shell: composer-cli blueprints depsolve {{ blueprint_name }}
+      register: r_depsolve
+      changed_when: false
+      failed_when: r_depsolve.rc != 0
+
+    # Idempotency guard: skip if FINISHED compose already exists
+    # Compose list format: UUID   FINISHED   blueprint-name   version   type
+    - name: Start compose only when no FINISHED compose exists
+      ansible.builtin.shell: >
+        composer-cli compose list | grep -q 'FINISHED.*{{ blueprint_name }}' ||
+        composer-cli compose start {{ blueprint_name }} {{ compose_image_type }}
+      register: r_compose_start
+      changed_when: "'added to the queue' in r_compose_start.stdout"
+
+    # Wait for FINISHED — can take 3-10 min; retries: 60 x 15s = 15 min max
+    # Compose list format: UUID   FINISHED   sample-webserver   version   type
+    - name: Wait for compose to finish
+      ansible.builtin.shell: >
+        composer-cli compose list | grep '{{ blueprint_name }}' | grep 'FINISHED'
+      register: compose_status
+      until: compose_status.rc == 0
+      retries: "{{ compose_wait_retries }}"
+      delay: "{{ compose_wait_delay }}"
+      changed_when: false
+
+    - name: Extract FINISHED compose UUID
+      ansible.builtin.shell: >
+        composer-cli compose list | grep '{{ blueprint_name }}' | grep 'FINISHED' | awk '{print $1}'
+      register: image_uuid
+      changed_when: false
+      failed_when: image_uuid.stdout | trim | length == 0
+
+    - name: Show extracted compose UUID
+      ansible.builtin.debug:
+        msg: "Compose UUID: {{ image_uuid.stdout | trim }}"
+
+    # chdir is required — the lab does not use an absolute path in the command
+    - name: Retrieve qcow2 image from composer
+      ansible.builtin.shell: >
+        composer-cli compose image {{ image_uuid.stdout | trim }}
+      args:
+        chdir: "{{ libvirt_images_dir }}"
+      register: r_retrieve
+      changed_when: true
+
+    - name: Rename image to vmguest.qcow2 (prerequisite for module-15)
+      ansible.builtin.shell: >
+        mv {{ image_uuid.stdout | trim }}-disk.qcow2 vmguest.qcow2
+      args:
+        chdir: "{{ libvirt_images_dir }}"
+        creates: "{{ libvirt_images_dir }}/vmguest.qcow2"
+      register: r_rename
+
+    - name: Run workshop finish script
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          host-check script     : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          packages installed    : osbuild-composer, weldr-client, cockpit-image-builder, guestfs-tools
+          blueprint pushed      : {{ 'ok' if blueprint_name in r_blueprints.stdout else 'NOT ok' }}
+          depsolve              : {{ 'ok' if r_depsolve.rc == 0 else 'NOT ok' }}
+          compose FINISHED      : {{ 'ok' if compose_status.rc == 0 else 'NOT ok' }}
+          compose UUID          : {{ image_uuid.stdout | trim }}
+          vmguest.qcow2 present : ok
+          finish script         : {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}

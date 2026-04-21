@@ -1,0 +1,132 @@
+---
+- name: Image Builder (composer) Validation
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    blueprint_name: sample-webserver
+    libvirt_images_dir: /var/lib/libvirt/images
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — Required packages are installed
+    # On RHEL 10: composer-cli is provided by weldr-client
+    #             cockpit-composer is cockpit-image-builder
+    # -------------------------------------------------------
+    - name: Check osbuild-composer is installed
+      ansible.builtin.command: rpm -q osbuild-composer
+      register: r_pkg_composer
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check weldr-client (composer-cli) is installed
+      ansible.builtin.command: rpm -q weldr-client
+      register: r_pkg_cli
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check cockpit-image-builder is installed
+      ansible.builtin.command: rpm -q cockpit-image-builder
+      register: r_pkg_cockpit
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check guestfs-tools is installed
+      ansible.builtin.command: rpm -q guestfs-tools
+      register: r_pkg_guestfs
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — Blueprint 'sample-webserver' exists in list
+    # -------------------------------------------------------
+    - name: List blueprints
+      ansible.builtin.command: composer-cli blueprints list
+      register: r_blueprints
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — Blueprint depsolve exits rc == 0
+    # -------------------------------------------------------
+    - name: Depsolve sample-webserver blueprint
+      ansible.builtin.command: composer-cli blueprints depsolve {{ blueprint_name }}
+      register: r_depsolve
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 4 — A FINISHED compose for sample-webserver exists
+    # Compose list format: UUID   FINISHED   blueprint-name   version   type
+    # -------------------------------------------------------
+    - name: List composes
+      ansible.builtin.command: composer-cli compose list
+      register: r_compose_list
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 5 — vmguest.qcow2 exists in /var/lib/libvirt/images
+    # -------------------------------------------------------
+    - name: Check vmguest.qcow2 exists
+      ansible.builtin.stat:
+        path: "{{ libvirt_images_dir }}/vmguest.qcow2"
+      register: r_qcow2
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Build result booleans
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: >-
+          {{
+            r_pkg_composer.rc | default(1) == 0 and
+            r_pkg_cli.rc | default(1) == 0 and
+            r_pkg_cockpit.rc | default(1) == 0 and
+            r_pkg_guestfs.rc | default(1) == 0
+          }}
+        _task2_ok: >-
+          {{
+            blueprint_name in (r_blueprints.stdout | default(''))
+          }}
+        _task3_ok: >-
+          {{
+            r_depsolve.rc | default(1) == 0
+          }}
+        _task4_ok: >-
+          {{
+            (r_compose_list.stdout_lines | default([])) |
+            select('search', blueprint_name) |
+            select('search', 'FINISHED') |
+            list | length > 0
+          }}
+        _task5_ok: >-
+          {{
+            r_qcow2.stat.exists | default(false)
+          }}
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ '  ok ' if _task1_ok else 'FAIL' }} Task 1: Required packages — {{ 'installed' if _task1_ok else 'one or more missing — run: dnf install -y osbuild-composer weldr-client cockpit-image-builder guestfs-tools' }}
+          {{ '  ok ' if _task2_ok else 'FAIL' }} Task 2: Blueprint 'sample-webserver' — {{ 'present' if _task2_ok else 'not found — run: composer-cli blueprints push /usr/local/etc/imagebuilder-sample.toml' }}
+          {{ '  ok ' if _task3_ok else 'FAIL' }} Task 3: Blueprint depsolve — {{ 'passed' if _task3_ok else 'failed — check Satellite repo config or run workshop-imagebuilder-config.sh' }}
+          {{ '  ok ' if _task4_ok else 'FAIL' }} Task 4: FINISHED compose — {{ 'exists' if _task4_ok else 'not found — compose may still be running (wait ~5-10 min) then click Validate again, or run: composer-cli compose start sample-webserver qcow2' }}
+          {{ '  ok ' if _task5_ok else 'FAIL' }} Task 5: vmguest.qcow2 — {{ 'present' if _task5_ok else 'missing — retrieve and rename the image: cd /var/lib/libvirt/images && composer-cli compose image <UUID> && mv <UUID>-disk.qcow2 vmguest.qcow2' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: osbuild-composer, weldr-client (composer-cli), cockpit-image-builder, guestfs-tools installed
+          Task 2: Blueprint 'sample-webserver' found in composer-cli blueprints list
+          Task 3: Blueprint depsolve completed successfully (all packages resolvable)
+          Task 4: Compose for 'sample-webserver' reached FINISHED state
+          Task 5: /var/lib/libvirt/images/vmguest.qcow2 exists (prerequisite for module-15)
+      when: _task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok
