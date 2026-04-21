@@ -1,0 +1,244 @@
+---
+- name: Containers pt.3 (podman namespaces) — Advanced Solve
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    ubi_image: "registry.access.redhat.com/ubi10/ubi:latest"
+    oci_file: "/root/custom_image.OCIFile"
+    custom_image_tag: "custom_image"
+    webserver_name: "webserver"
+    webserver_port: "8080"
+
+  tasks:
+
+    - name: Run workshop-podman-checkhost.sh
+      ansible.builtin.command: workshop-podman-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    - name: Assert checkhost returned rc==0
+      ansible.builtin.assert:
+        that: r_checkhost.rc == 0
+        fail_msg: "workshop-podman-checkhost.sh failed — wrong host or workshop not set up"
+        success_msg: "Host check passed"
+
+    # Initial cleanup
+    - name: Kill all running containers (initial cleanup)
+      ansible.builtin.command: podman kill --all
+      register: r_kill_init
+      changed_when: r_kill_init.rc == 0
+      ignore_errors: true
+
+    - name: Remove all containers (initial cleanup)
+      ansible.builtin.command: podman rm --all
+      register: r_rm_init
+      changed_when: r_rm_init.rc == 0
+      ignore_errors: true
+
+    - name: Remove all images (initial cleanup)
+      ansible.builtin.command: podman rmi --all
+      register: r_rmi_init
+      changed_when: r_rmi_init.rc == 0
+      ignore_errors: true
+
+    - name: Pull ubi10/ubi:latest from registry
+      ansible.builtin.command: "podman pull {{ ubi_image }}"
+      register: r_pull
+      changed_when: true
+      ignore_errors: true
+
+    # Namespace demonstration steps
+    - name: Run ubi container to read hostname (UTS namespace demo)
+      ansible.builtin.command: podman run ubi cat /proc/sys/kernel/hostname
+      register: r_uts
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run ps -ef inside ubi via bind-mount (PID namespace demo)
+      ansible.builtin.command: >-
+        podman run -v /usr/bin:/usr/bin -v /usr/lib64:/usr/lib64 ubi /bin/ps -ef
+      register: r_pid
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run ip addr show eth0 inside ubi (network namespace demo)
+      ansible.builtin.command: >-
+        podman run -v /usr/sbin:/usr/sbin ubi /usr/sbin/ip addr show eth0
+      register: r_net_ip
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run ubi to cat /etc/hosts
+      ansible.builtin.command: podman run --rm ubi cat /etc/hosts
+      register: r_hosts
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run ubi to cat /etc/resolv.conf
+      ansible.builtin.command: podman run --rm ubi cat /etc/resolv.conf
+      register: r_resolv
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run route -n via bind-mount /usr/sbin inside ubi
+      ansible.builtin.command: podman run -v /usr/sbin:/usr/sbin --rm ubi route -n
+      register: r_route
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run df -h inside ubi (mount namespace — overlay)
+      ansible.builtin.command: podman run ubi df -h
+      register: r_df_overlay
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run df -h inside ubi with /usr/bin bind-mount
+      ansible.builtin.command: podman run -v /usr/bin:/usr/bin ubi df -h
+      register: r_df_bindmount
+      changed_when: false
+      ignore_errors: true
+
+    # Mid-exercise cleanup
+    - name: Kill all running containers (mid-exercise cleanup)
+      ansible.builtin.command: podman kill --all
+      register: r_kill_mid
+      changed_when: r_kill_mid.rc == 0
+      ignore_errors: true
+
+    - name: Remove all containers (mid-exercise cleanup)
+      ansible.builtin.command: podman rm --all
+      register: r_rm_mid
+      changed_when: r_rm_mid.rc == 0
+      ignore_errors: true
+
+    - name: Stat /root/custom_image.OCIFile
+      ansible.builtin.stat:
+        path: "{{ oci_file }}"
+      register: r_ocifile
+
+    - name: Assert OCIFile was pre-staged
+      ansible.builtin.assert:
+        that: r_ocifile.stat.exists
+        fail_msg: "{{ oci_file }} does not exist — hol_rhel10_automation.lab_setup may not have run"
+        success_msg: "OCIFile found at {{ oci_file }}"
+
+    # Build custom image — httpd install inside is slow, async 300s
+    - name: Build custom_image from OCIFile (async — up to 300s)
+      ansible.builtin.command:
+        cmd: "podman build -t {{ custom_image_tag }} --file {{ oci_file }}"
+        chdir: /root
+      register: r_build
+      changed_when: r_build.rc == 0
+      async: 300
+      poll: 10
+      ignore_errors: true
+
+    - name: Deploy webserver container (detached, port 8080->80)
+      ansible.builtin.command: >-
+        podman run -d --name="{{ webserver_name }}" -p {{ webserver_port }}:80 {{ custom_image_tag }}
+      register: r_run
+      changed_when: r_run.rc == 0
+      ignore_errors: true
+
+    - name: Wait briefly for httpd to start inside container
+      ansible.builtin.pause:
+        seconds: 3
+
+    - name: Curl http://localhost:{{ webserver_port }}/
+      ansible.builtin.uri:
+        url: "http://localhost:{{ webserver_port }}/"
+        method: GET
+        return_content: true
+        validate_certs: false
+        timeout: 10
+        status_code: [200]
+      register: r_curl
+      ignore_errors: true
+
+    - name: Assert curl returns expected body
+      ansible.builtin.assert:
+        that: "'The Web Server is Running' in r_curl.content"
+        fail_msg: "curl did not return expected body. Got: {{ r_curl.content | default('') }}"
+        success_msg: "curl check passed — web server is responding"
+
+    - name: Check httpd processes via pgrep
+      ansible.builtin.command: pgrep -laf httpd
+      register: r_pgrep
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check port 8080 is listening via ss
+      ansible.builtin.shell: ss -tlnp | grep 8080
+      register: r_ss
+      changed_when: false
+      ignore_errors: true
+
+    - name: List namespaces via lsns
+      ansible.builtin.command: lsns
+      register: r_lsns
+      changed_when: false
+      ignore_errors: true
+
+    - name: Inspect cgroup hierarchy via systemd-cgls
+      ansible.builtin.command: systemd-cgls --no-pager
+      register: r_cgls
+      changed_when: false
+      ignore_errors: true
+
+    # Final cleanup
+    - name: Stop webserver container
+      ansible.builtin.command: "podman stop {{ webserver_name }}"
+      register: r_stop
+      changed_when: r_stop.rc == 0
+      ignore_errors: true
+
+    - name: Remove webserver container
+      ansible.builtin.command: "podman rm {{ webserver_name }}"
+      register: r_rm_web
+      changed_when: r_rm_web.rc == 0
+      ignore_errors: true
+
+    - name: Kill and remove all remaining containers
+      ansible.builtin.command: podman kill --all
+      register: r_kill_final
+      changed_when: r_kill_final.rc == 0
+      ignore_errors: true
+
+    - name: Remove all remaining containers
+      ansible.builtin.command: podman rm --all
+      changed_when: false
+      ignore_errors: true
+
+    - name: Force-remove all images
+      ansible.builtin.shell: podman rmi --all --force
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script       : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          ubi10/ubi pull         : {{ 'ok' if r_pull.rc == 0 else 'NOT ok' }}
+          UTS namespace demo     : {{ 'ok' if r_uts.rc == 0 else 'NOT ok' }}
+          PID namespace demo     : {{ 'ok' if r_pid.rc == 0 else 'NOT ok' }}
+          Network namespace IP   : {{ 'ok' if '10.88.' in r_net_ip.stdout | default('') else 'NOT ok' }}
+          /etc/hosts check       : {{ 'ok' if 'host.containers.internal' in r_hosts.stdout | default('') else 'NOT ok' }}
+          /etc/resolv.conf check : {{ 'ok' if 'nameserver' in r_resolv.stdout | default('') else 'NOT ok' }}
+          df overlay check       : {{ 'ok' if 'overlay' in r_df_overlay.stdout | default('') else 'NOT ok' }}
+          OCIFile present        : {{ 'ok' if r_ocifile.stat.exists else 'NOT ok' }}
+          custom_image build     : {{ 'ok' if r_build.rc == 0 else 'NOT ok' }}
+          webserver deploy       : {{ 'ok' if r_run.rc == 0 else 'NOT ok' }}
+          curl localhost:8080    : {{ 'ok' if r_curl is defined and 'The Web Server is Running' in (r_curl.content | default('')) else 'NOT ok' }}
+          pgrep httpd            : {{ 'ok' if 'httpd' in r_pgrep.stdout | default('') else 'NOT ok' }}
+          port 8080 listening    : {{ 'ok' if '8080' in r_ss.stdout | default('') else 'NOT ok' }}
+          machine.slice cgroup   : {{ 'ok' if 'machine.slice' in r_cgls.stdout | default('') else 'NOT ok' }}
+          finish script          : {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}
