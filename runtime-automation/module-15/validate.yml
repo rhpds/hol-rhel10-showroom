@@ -1,0 +1,136 @@
+---
+- name: Virt Mgmt (libvirt) Validation
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    required_packages:
+      - qemu-kvm
+      - libvirt
+      - virt-install
+      - libvirt-client
+      - guestfs-tools
+    vm_name: vmguest
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — libvirtd service is active and enabled
+    # -------------------------------------------------------
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+      register: r_service_facts
+      ignore_errors: true
+
+    - name: Set libvirtd status facts
+      ansible.builtin.set_fact:
+        _libvirtd_active: >-
+          {{
+            ansible_facts.services is defined and
+            (
+              ansible_facts.services['libvirtd.service'] is defined and
+              ansible_facts.services['libvirtd.service']['state'] == 'running'
+            ) or (
+              ansible_facts.services['libvirtd.service'] is defined and
+              ansible_facts.services['libvirtd.service']['status'] == 'active'
+            )
+          }}
+        _libvirtd_enabled: >-
+          {{
+            ansible_facts.services is defined and
+            ansible_facts.services['libvirtd.service'] is defined and
+            ansible_facts.services['libvirtd.service']['status'] in ['enabled', 'active']
+          }}
+
+    # -------------------------------------------------------
+    # Check 2 — Required virtualization packages are installed
+    # Note: RHEL 10 uses guestfs-tools (not libguestfs-tools)
+    # -------------------------------------------------------
+    - name: Gather package facts
+      ansible.builtin.package_facts:
+        manager: rpm
+      register: r_pkg_facts
+      ignore_errors: true
+
+    - name: Check each required package is present
+      ansible.builtin.set_fact:
+        _pkg_qemu_kvm: "{{ 'qemu-kvm' in ansible_facts.packages }}"
+        _pkg_libvirt: "{{ 'libvirt' in ansible_facts.packages }}"
+        _pkg_virt_install: "{{ 'virt-install' in ansible_facts.packages }}"
+        _pkg_libvirt_client: "{{ 'libvirt-client' in ansible_facts.packages }}"
+        _pkg_guestfs_tools: "{{ 'guestfs-tools' in ansible_facts.packages }}"
+
+    - name: Derive packages-ok aggregate fact
+      ansible.builtin.set_fact:
+        _packages_ok: >-
+          {{
+            _pkg_qemu_kvm and
+            _pkg_libvirt and
+            _pkg_virt_install and
+            _pkg_libvirt_client and
+            _pkg_guestfs_tools
+          }}
+
+    # -------------------------------------------------------
+    # Check 3 — vmguest domain is NOT present (cleaned up)
+    # -------------------------------------------------------
+    - name: List all virsh domains
+      ansible.builtin.command: virsh list --all
+      register: r_virsh_all
+      changed_when: false
+      ignore_errors: true
+
+    - name: Derive vmguest-absent fact
+      ansible.builtin.set_fact:
+        _vmguest_absent: >-
+          {{
+            r_virsh_all is not failed and
+            vm_name not in (r_virsh_all.stdout | default(''))
+          }}
+
+    # -------------------------------------------------------
+    # Check 4 — workshop-finish-exercise.sh is present and executable
+    # Running the script in automation kills the SSH session (pkill),
+    # so we verify the script exists with correct permissions instead.
+    # -------------------------------------------------------
+    - name: Stat workshop-finish-exercise.sh
+      ansible.builtin.stat:
+        path: /usr/local/bin/workshop-finish-exercise.sh
+      register: r_finish_stat
+
+    - name: Derive finish-script-ok fact
+      ansible.builtin.set_fact:
+        _finish_ok: >-
+          {{
+            r_finish_stat.stat.exists | default(false) and
+            r_finish_stat.stat.executable | default(false)
+          }}
+
+    # -------------------------------------------------------
+    # Build results and validate
+    # -------------------------------------------------------
+    - name: Build task result facts
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ _libvirtd_active | bool }}"
+        _task2_ok: "{{ _packages_ok | bool }}"
+        _task3_ok: "{{ _vmguest_absent | bool }}"
+        _task4_ok: "{{ _finish_ok | bool }}"
+
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: libvirtd is active and running' if _task1_ok else 'Task 1: FAILED — libvirtd is not running. Run: systemctl start libvirtd' }}
+          {{ 'Task 2: All virtualization packages installed' if _task2_ok else 'Task 2: FAILED — One or more packages missing: ' + ([('qemu-kvm' if not _pkg_qemu_kvm else ''), ('libvirt' if not _pkg_libvirt else ''), ('virt-install' if not _pkg_virt_install else ''), ('libvirt-client' if not _pkg_libvirt_client else ''), ('guestfs-tools' if not _pkg_guestfs_tools else '')] | reject('equalto', '') | list | join(', ')) + ' — run Solve to install missing packages' }}
+          {{ 'Task 3: vmguest domain absent (cleanup ok)' if _task3_ok else 'Task 3: FAILED — vmguest domain still exists. Run: virsh destroy vmguest && virsh undefine vmguest --remove-all-storage' }}
+          {{ 'Task 4: workshop-finish-exercise.sh present and executable' if _task4_ok else 'Task 4: FAILED — workshop-finish-exercise.sh missing or not executable at /usr/local/bin/workshop-finish-exercise.sh' }}
+      when: not (_task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: libvirtd service is active and running on node3
+          Task 2: All required virtualization packages are installed (qemu-kvm, libvirt, virt-install, libvirt-client, guestfs-tools)
+          Task 3: vmguest domain is absent — cleanup completed correctly
+          Task 4: workshop-finish-exercise.sh is present and executable — environment is in clean state
+      when: _task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool

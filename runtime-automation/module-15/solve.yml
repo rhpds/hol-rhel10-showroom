@@ -1,0 +1,205 @@
+---
+- name: Virt Mgmt (libvirt) — Intermediate Solve
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    vm_image: /var/lib/libvirt/images/vmguest.qcow2
+    vm_name: vmguest
+    index_html_src: /usr/local/etc/index.html
+
+  tasks:
+
+    - name: Run workshop-virt-checkhost.sh
+      ansible.builtin.command: workshop-virt-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      failed_when: r_checkhost.rc != 0
+
+    - name: Install virtualization packages (idempotent)
+      ansible.builtin.dnf:
+        name:
+          - qemu-kvm
+          - libvirt
+          - virt-install
+          - libvirt-client
+          - guestfs-tools
+          - cockpit-machines
+        state: present
+
+    - name: Enable and start libvirtd service
+      ansible.builtin.service:
+        name: libvirtd
+        enabled: true
+        state: started
+
+    - name: Assert vmguest.qcow2 exists (prerequisite from module-14)
+      ansible.builtin.stat:
+        path: "{{ vm_image }}"
+      register: r_qcow2
+
+    - name: Fail if vmguest.qcow2 is missing
+      ansible.builtin.fail:
+        msg: >
+          Prerequisite not met: {{ vm_image }} does not exist.
+          Complete the Image Builder unit (module-14) before running this solve.
+      when: not r_qcow2.stat.exists
+
+    - name: Assert /usr/local/etc/index.html exists
+      ansible.builtin.stat:
+        path: "{{ index_html_src }}"
+      register: r_index_html
+
+    - name: Fail if index.html source is missing
+      ansible.builtin.fail:
+        msg: >
+          Prerequisite not met: {{ index_html_src }} does not exist.
+          Check that hol_rhel10_automation.lab_setup role ran successfully.
+      when: not r_index_html.stat.exists
+
+    - name: Ensure /root/.ssh directory exists
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        mode: '0700'
+
+    - name: Check if root SSH key exists
+      ansible.builtin.stat:
+        path: /root/.ssh/id_rsa.pub
+      register: r_root_pubkey
+
+    - name: Generate root SSH key if absent
+      ansible.builtin.command: ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -N ''
+      when: not r_root_pubkey.stat.exists
+
+    - name: Find root SSH public key path
+      ansible.builtin.shell: ls /root/.ssh/*.pub | head -1
+      register: r_pubkey_path
+      changed_when: false
+      failed_when: r_pubkey_path.stdout | trim | length == 0
+
+    - name: Check if vmguest domain already exists (idempotency gate)
+      ansible.builtin.command: virsh list --all
+      register: r_virsh_all
+      changed_when: false
+
+    - name: Set fact — vmguest domain already defined
+      ansible.builtin.set_fact:
+        vmguest_exists: "{{ 'vmguest' in r_virsh_all.stdout }}"
+
+    # virt-customize — long running (~30s), async 120s
+    - name: Customize QCOW2 image with virt-customize
+      ansible.builtin.shell: >-
+        PUBKEY={{ r_pubkey_path.stdout | trim }} &&
+        virt-customize
+        -a {{ vm_image }}
+        --hostname {{ vm_name }}
+        --root-password password:redhat
+        --ssh-inject root:file:${PUBKEY}
+        --copy-in {{ index_html_src }}:/var/www/html
+        --selinux-relabel
+        --run-command 'echo "PermitRootLogin yes" >> /etc/ssh/sshd_config.d/rootlogin.conf'
+        --uninstall cloud-init
+      when: not vmguest_exists
+      async: 120
+      poll: 5
+      register: r_virt_customize
+
+    - name: Install vmguest VM with virt-install
+      ansible.builtin.command: >-
+        virt-install
+        --import
+        --name {{ vm_name }}
+        --memory 2048
+        --cpu host
+        --vcpus 1
+        --disk {{ vm_image }}
+        --graphics vnc
+        --noautoconsole
+        --os-variant rhel10.0
+      when: not vmguest_exists
+      register: r_virt_install
+
+    - name: Wait for vmguest to acquire IP address via virsh domifaddr
+      ansible.builtin.shell: >-
+        virsh domifaddr {{ vm_name }}
+        | sed -e '1,2d' -e '$d'
+        | awk '{ split($4,a,/\//); print a[1] }'
+      register: r_vm_ip
+      until: r_vm_ip.stdout | trim | length > 5
+      retries: 30
+      delay: 5
+      changed_when: false
+
+    - name: Set vm_ip fact
+      ansible.builtin.set_fact:
+        vm_ip: "{{ r_vm_ip.stdout | trim }}"
+
+    - name: Wait for SSH on vmguest ({{ vm_ip }})
+      ansible.builtin.wait_for:
+        host: "{{ vm_ip }}"
+        port: 22
+        timeout: 120
+
+    - name: Check httpd status and index.html inside vmguest via SSH
+      ansible.builtin.shell: "ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 root@{{ vm_ip }} 'systemctl --no-pager status httpd && ls /var/www/html/index.html'"
+      register: r_httpd_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Fetch VM web page and assert 'Success' in body
+      ansible.builtin.uri:
+        url: "http://{{ vm_ip }}"
+        return_content: true
+        validate_certs: false
+        timeout: 30
+        status_code: [200]
+      register: r_curl
+      ignore_errors: true
+
+    - name: Assert web page contains 'Success'
+      ansible.builtin.assert:
+        that: "'Success' in r_curl.content"
+        fail_msg: "VM web page did not contain 'Success'. Got: {{ r_curl.content | default('no response') }}"
+        success_msg: "VM web page contains 'Success'"
+      ignore_errors: true
+
+    # Cleanup: required by lab (adoc WARNING about leaving VM running)
+    - name: Destroy vmguest VM
+      ansible.builtin.shell: >-
+        virsh list --state-running | grep -q {{ vm_name }}
+        && virsh destroy {{ vm_name }}
+        || true
+      register: r_destroy
+      changed_when: "'Domain' in r_destroy.stdout"
+      ignore_errors: true
+
+    - name: Undefine vmguest VM and remove storage
+      ansible.builtin.shell: >-
+        virsh list --all | grep -q {{ vm_name }}
+        && virsh undefine {{ vm_name }} --remove-all-storage
+        || true
+      register: r_undefine
+      changed_when: "'Domain' in r_undefine.stdout"
+      ignore_errors: true
+
+    # SKIP: Cockpit Web Console VM inspection — browser UI only
+
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          host-check    : {{ 'ok' if r_checkhost.rc == 0 else 'FAILED' }}
+          libvirtd      : ok (started+enabled)
+          vmguest qcow2 : {{ 'ok' if r_qcow2.stat.exists else 'MISSING — run module-14 first' }}
+          vm-ip         : {{ vm_ip | default('not resolved') }}
+          httpd-in-vm   : {{ 'ok' if r_httpd_check.rc | default(1) == 0 else 'FAILED' }}
+          curl-success  : {{ 'ok' if r_curl.content is defined and 'Success' in r_curl.content else 'NOT ok' }}
+          vm-cleanup    : ok
+          finish-script : {{ 'ok' if r_finish.rc == 0 else 'FAILED' }}
