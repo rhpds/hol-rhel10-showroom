@@ -1,0 +1,74 @@
+---
+# Module 06 — Web Console (cockpit) Solve
+# All student steps are browser-based Cockpit UI interactions.
+# This playbook implements the shell equivalents of each UI action directly on node3.
+- name: Web Console (cockpit) Solve
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    tuned_profile: throughput-performance
+    firewall_service: ntp
+    firewall_zone: public
+    pmlogger_service: pmlogger
+    sample_file: /var/tmp/webconsole-sample.txt
+
+  tasks:
+
+    # SKIP: Cockpit login and admin access — browser UI only, no shell equivalent
+
+    # Equivalent of Cockpit "Enable Persistent Metrics" toggle
+    - name: Ensure pmlogger service is started and enabled
+      ansible.builtin.systemd:
+        name: "{{ pmlogger_service }}"
+        state: started
+        enabled: true
+      ignore_errors: true
+      register: r_pmlogger
+
+    # Equivalent of Cockpit "Change performance profile → throughput-performance"
+    - name: Set tuned performance profile to throughput-performance
+      ansible.builtin.command:
+        cmd: "tuned-adm profile {{ tuned_profile }}"
+      changed_when: true
+      ignore_errors: true
+      register: r_tuned
+
+    # Equivalent of Cockpit Networking → Firewall → Add ntp service
+    - name: Enable ntp service in public firewall zone (permanent + immediate)
+      ansible.posix.firewalld:
+        service: "{{ firewall_service }}"
+        zone: "{{ firewall_zone }}"
+        state: enabled
+        permanent: true
+        immediate: true
+      ignore_errors: true
+      register: r_firewall
+
+    # SKIP: View Logs, Network browse, chronyd check, File Browser, Applications — explore only
+
+    # Ensure webconsole-sample.txt exists for File Browser exercise validation
+    - name: Create webconsole-sample.txt in /var/tmp if absent
+      ansible.builtin.copy:
+        dest: "{{ sample_file }}"
+        content: |
+          Knock, knock.
+          Who's there?
+          Wooden shoe.
+          Wooden shoe who?
+          Wooden shoe like to hear another joke?
+        owner: root
+        group: root
+        mode: "0644"
+        force: false
+      ignore_errors: true
+      register: r_sample_file
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          pmlogger started+enabled : {{ 'ok' if r_pmlogger is not failed else 'NOT ok' }}
+          tuned throughput-perf    : {{ 'ok' if r_tuned is not failed else 'NOT ok' }}
+          ntp in public zone       : {{ 'ok' if r_firewall is not failed else 'NOT ok' }}
+          webconsole-sample.txt    : {{ 'ok' if r_sample_file is not failed else 'NOT ok' }}
+          NOTE: chronyd was already running — no action needed.

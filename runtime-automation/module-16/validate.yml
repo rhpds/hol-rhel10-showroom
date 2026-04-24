@@ -1,0 +1,146 @@
+---
+- name: RHEL Lightspeed pt.2 Validation
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    student_user: "{{ user | default('') }}"
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — ServerRoot in httpd.conf is correct (no double-d)
+    # -------------------------------------------------------
+    - name: Read ServerRoot line from httpd.conf
+      ansible.builtin.command:
+        cmd: grep ^ServerRoot /etc/httpd/conf/httpd.conf
+      register: r_serverroot
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — httpd service is active (running)
+    # -------------------------------------------------------
+    - name: Check httpd service state
+      ansible.builtin.command:
+        cmd: systemctl is-active httpd
+      register: r_httpd
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — /root/webdevs.txt exists with correct content
+    # -------------------------------------------------------
+    - name: Read /root/webdevs.txt
+      ansible.builtin.command:
+        cmd: cat /root/webdevs.txt
+      register: r_webdevs
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 4 — Users bob, susan, francis exist on node2
+    # -------------------------------------------------------
+    - name: Check user bob exists
+      ansible.builtin.command:
+        cmd: getent passwd bob
+      register: r_bob
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check user susan exists
+      ansible.builtin.command:
+        cmd: getent passwd susan
+      register: r_susan
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check user francis exists
+      ansible.builtin.command:
+        cmd: getent passwd francis
+      register: r_francis
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 5 — bob, susan, francis are members of apache group
+    # -------------------------------------------------------
+    - name: Check bob is in apache group
+      ansible.builtin.command:
+        cmd: id bob
+      register: r_bob_grp
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check susan is in apache group
+      ansible.builtin.command:
+        cmd: id susan
+      register: r_susan_grp
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check francis is in apache group
+      ansible.builtin.command:
+        cmd: id francis
+      register: r_francis_grp
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Build results
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: >-
+          {{
+            r_serverroot.rc | default(1) == 0 and
+            'ServerRoot "/etc/httpd"' in (r_serverroot.stdout | default('')) and
+            'httpdd' not in (r_serverroot.stdout | default(''))
+          }}
+        _task2_ok: >-
+          {{
+            r_httpd.rc | default(1) == 0 and
+            (r_httpd.stdout | default('')) == 'active'
+          }}
+        _task3_ok: >-
+          {{
+            r_webdevs.rc | default(1) == 0 and
+            'bob' in (r_webdevs.stdout | default('')) and
+            'susan' in (r_webdevs.stdout | default('')) and
+            'francis' in (r_webdevs.stdout | default(''))
+          }}
+        _task4_ok: >-
+          {{
+            r_bob.rc | default(1) == 0 and
+            r_susan.rc | default(1) == 0 and
+            r_francis.rc | default(1) == 0
+          }}
+        _task5_ok: >-
+          {{
+            'apache' in (r_bob_grp.stdout | default('')) and
+            'apache' in (r_susan_grp.stdout | default('')) and
+            'apache' in (r_francis_grp.stdout | default(''))
+          }}
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: ServerRoot is correct' if _task1_ok else 'Task 1: FAILED — /etc/httpd/conf/httpd.conf still contains /etc/httpdd — fix the ServerRoot line or run Solve' }}
+          {{ 'Task 2: httpd service is active' if _task2_ok else 'Task 2: FAILED — httpd is not running — run: systemctl start httpd' }}
+          {{ 'Task 3: /root/webdevs.txt present with all three names' if _task3_ok else 'Task 3: FAILED — /root/webdevs.txt is missing or does not contain bob, susan, and francis' }}
+          {{ 'Task 4: Users bob, susan, francis exist' if _task4_ok else 'Task 4: FAILED — one or more users (bob, susan, francis) do not exist — create them or run Solve' }}
+          {{ 'Task 5: All three users are in the apache group' if _task5_ok else 'Task 5: FAILED — bob, susan, or francis is not a member of the apache group — add them with: usermod -aG apache <username>' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: ServerRoot is correct in /etc/httpd/conf/httpd.conf
+          Task 2: httpd service is active (running)
+          Task 3: /root/webdevs.txt exists with bob, susan, francis
+          Task 4: Users bob, susan, francis exist on node2
+          Task 5: bob, susan, francis are members of the apache group
+      when: _task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok

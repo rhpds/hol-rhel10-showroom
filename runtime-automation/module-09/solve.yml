@@ -1,0 +1,113 @@
+---
+- name: Service Management pt.2 (systemd) — Intermediate Solve
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    httpd_dropin_dir: /etc/systemd/system/httpd.service.d
+    httpd_dropin_file: /etc/systemd/system/httpd.service.d/50-httpd.conf
+    mariadb_dropin_dir: /etc/systemd/system/mariadb.service.d
+    mariadb_dropin_file: /etc/systemd/system/mariadb.service.d/override.conf
+
+  tasks:
+
+    - name: Run workshop-systemd-checkhost.sh on node1
+      ansible.builtin.command:
+        cmd: workshop-systemd-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    - name: Assert checkhost returned rc 0
+      ansible.builtin.assert:
+        that: r_checkhost.rc == 0
+        fail_msg: "workshop-systemd-checkhost.sh failed — lab environment may not be ready"
+        success_msg: "checkhost passed"
+      ignore_errors: true
+
+    # block-04: workshop script creates httpd drop-in (Restart=always + OOMScoreAdjust=-1000)
+    - name: Run workshop-systemd-httpdconfig.sh on node1
+      ansible.builtin.command:
+        cmd: workshop-systemd-httpdconfig.sh
+      register: r_httpdconfig
+      changed_when: true
+      ignore_errors: true
+
+    - name: Reload systemd daemon after httpd drop-in
+      ansible.builtin.systemd:
+        daemon_reload: true
+      ignore_errors: true
+
+    # block-06/07 SKIP (interactive systemctl edit) — replaced by direct file write
+    - name: Ensure mariadb.service.d directory exists
+      ansible.builtin.file:
+        path: "{{ mariadb_dropin_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      ignore_errors: true
+
+    - name: Check if mariadb override.conf already has Restart=always
+      ansible.builtin.command:
+        cmd: "grep -q 'Restart=always' {{ mariadb_dropin_file }}"
+      register: r_mariadb_check
+      changed_when: false
+      failed_when: false
+      ignore_errors: true
+
+    - name: Write mariadb override.conf
+      ansible.builtin.copy:
+        dest: "{{ mariadb_dropin_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Service]
+          Restart=always
+      when: r_mariadb_check.rc != 0
+      ignore_errors: true
+
+    - name: Reload systemd daemon after mariadb override
+      ansible.builtin.systemd:
+        daemon_reload: true
+      ignore_errors: true
+
+    - name: Verify mariadb drop-in with systemctl cat
+      ansible.builtin.command:
+        cmd: "systemctl --no-pager cat mariadb"
+      register: r_mariadb_cat
+      changed_when: false
+      ignore_errors: true
+
+    - name: Get httpd service status
+      ansible.builtin.command:
+        cmd: "systemctl --no-pager status httpd"
+      register: r_httpd_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: Get mariadb service status
+      ansible.builtin.command:
+        cmd: "systemctl --no-pager status mariadb"
+      register: r_mariadb_status
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run workshop-finish-exercise.sh on node1
+      ansible.builtin.shell:
+        SUDO_USER=ztrunner workshop-finish-exercise.sh
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script       : {{ 'ok' if r_checkhost.rc | default(1) == 0 else 'NOT ok' }}
+          httpdconfig script     : {{ 'ok' if r_httpdconfig.rc | default(1) == 0 else 'NOT ok' }}
+          httpd drop-in listed   : {{ 'ok' if '50-httpd.conf' in r_httpd_status.stdout | default('') else 'NOT ok' }}
+          httpd active (running) : {{ 'ok' if 'active (running)' in r_httpd_status.stdout | default('') else 'NOT ok' }}
+          mariadb override.conf  : {{ 'ok' if 'override.conf' in r_mariadb_cat.stdout | default('') else 'NOT ok' }}
+          mariadb active         : {{ 'ok' if 'active (running)' in r_mariadb_status.stdout | default('') else 'NOT ok' }}
+          finish script          : {{ 'ok' if r_finish.rc | default(1) == 0 else 'NOT ok' }}

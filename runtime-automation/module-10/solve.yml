@@ -1,0 +1,93 @@
+---
+- name: Storage Mgmt pt.2 (stratis) — Intermediate Solve
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    disk3: /dev/vdd
+    disk4: /dev/vde
+
+  tasks:
+
+    - name: Run workshop-stratis-checkhost.sh
+      ansible.builtin.command: workshop-stratis-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      failed_when: r_checkhost.rc != 0
+
+    - name: Check summitpool exists (prerequisite from module-03)
+      ansible.builtin.shell: stratis pool list | grep -q summitpool && echo found || echo missing
+      register: r_pool_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Fail if summitpool is missing
+      ansible.builtin.fail:
+        msg: >
+          summitpool not found on node2. Complete the fundamental-stratis
+          exercises (module-03) before running this solve.
+      when: (r_pool_check.stdout | default('missing')) == 'missing'
+
+    - name: Check if /dev/vdd is already a DATA device in summitpool
+      ansible.builtin.shell: >
+        stratis blockdev list | grep vdd | grep -i data
+        && echo already-data || echo not-data
+      register: r_vdd_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Add /dev/vdd to summitpool as DATA device
+      ansible.builtin.command: stratis pool add-data summitpool {{ disk3 }}
+      register: r_add_data
+      when: (r_vdd_check.stdout | default('not-data')) == 'not-data'
+      ignore_errors: true
+
+    - name: Verify /dev/vdd is DATA tier in stratis blockdev list
+      ansible.builtin.shell: stratis blockdev list | grep vdd | grep -i data && echo ok || echo missing
+      register: r_vdd_verify
+      changed_when: false
+      ignore_errors: true
+
+    - name: Set vdd data status fact
+      ansible.builtin.set_fact:
+        _vdd_data_ok: "{{ (r_vdd_verify.stdout | default('missing')) is search('ok') }}"
+
+    - name: Check if /dev/vde is already a CACHE device in summitpool
+      ansible.builtin.shell: >
+        stratis blockdev list | grep vde | grep -i cache
+        && echo already-cache || echo not-cache
+      register: r_vde_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Initialise /dev/vde as cache device for summitpool
+      ansible.builtin.command: stratis pool init-cache summitpool {{ disk4 }}
+      register: r_init_cache
+      when: (r_vde_check.stdout | default('not-cache')) == 'not-cache'
+      ignore_errors: true
+
+    - name: Verify /dev/vde is CACHE tier in stratis blockdev list
+      ansible.builtin.shell: stratis blockdev list | grep vde | grep -i cache && echo ok || echo missing
+      register: r_vde_verify
+      changed_when: false
+      ignore_errors: true
+
+    - name: Set vde cache status fact
+      ansible.builtin.set_fact:
+        _vde_cache_ok: "{{ (r_vde_verify.stdout | default('missing')) is search('ok') }}"
+
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script (rc==0):            {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          summitpool exists:                   {{ 'ok' if (r_pool_check.stdout | default('missing')) == 'found' else 'NOT ok' }}
+          /dev/vdd added as DATA tier:         {{ 'ok' if _vdd_data_ok else 'NOT ok' }}
+          /dev/vde added as CACHE tier:        {{ 'ok' if _vde_cache_ok else 'NOT ok' }}
+          workshop-finish-exercise.sh (rc==0): {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}

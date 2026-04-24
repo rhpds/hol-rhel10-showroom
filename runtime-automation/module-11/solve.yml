@@ -1,0 +1,121 @@
+---
+- name: Firewall Management pt.2 (firewalld) — Intermediate Solve
+  hosts: node1
+  gather_facts: false
+  become: true
+
+  tasks:
+
+    - name: Run workshop-firewalld-checkhost.sh
+      ansible.builtin.command: workshop-firewalld-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      failed_when: r_checkhost.rc != 0
+
+    # Add ad-hoc ports 8080/tcp and 8443/tcp (permanent + immediate)
+    - name: Add port 8080/tcp to public zone
+      ansible.posix.firewalld:
+        port: 8080/tcp
+        zone: public
+        state: enabled
+        permanent: true
+        immediate: true
+      register: r_add_8080
+      ignore_errors: true
+
+    - name: Add port 8443/tcp to public zone
+      ansible.posix.firewalld:
+        port: 8443/tcp
+        zone: public
+        state: enabled
+        permanent: true
+        immediate: true
+      register: r_add_8443
+      ignore_errors: true
+
+    - name: Persist runtime to permanent (belt-and-suspenders)
+      ansible.builtin.shell: firewall-cmd --runtime-to-permanent
+      changed_when: true
+      ignore_errors: true
+
+    # Remove the ad-hoc ports
+    - name: Remove port 8080/tcp from public zone
+      ansible.posix.firewalld:
+        port: 8080/tcp
+        zone: public
+        state: disabled
+        permanent: true
+        immediate: true
+      ignore_errors: true
+
+    - name: Remove port 8443/tcp from public zone
+      ansible.posix.firewalld:
+        port: 8443/tcp
+        zone: public
+        state: disabled
+        permanent: true
+        immediate: true
+      ignore_errors: true
+
+    - name: Persist port removals to permanent
+      ansible.builtin.shell: firewall-cmd --runtime-to-permanent
+      changed_when: true
+      ignore_errors: true
+
+    # Install custom http/https XML configs (adds ports 8080/8443 to service definitions)
+    - name: Run workshop-firewalld-customconfigs.sh
+      ansible.builtin.command: workshop-firewalld-customconfigs.sh
+      register: r_customconfigs
+      changed_when: true
+      ignore_errors: true
+
+    - name: Reload firewalld so custom XML takes effect
+      ansible.builtin.service:
+        name: firewalld
+        state: reloaded
+      ignore_errors: true
+
+    # Import custom "workshop" service definition (idempotent via creates:)
+    - name: Import workshop service from /usr/local/etc/firewalld-customname.xml
+      ansible.builtin.shell: >
+        firewall-cmd --new-service-from-file=/usr/local/etc/firewalld-customname.xml
+        --name=workshop --permanent
+      args:
+        creates: /etc/firewalld/services/workshop.xml
+      register: r_import_workshop
+      ignore_errors: true
+
+    - name: Reload firewalld so workshop service definition is active
+      ansible.builtin.service:
+        name: firewalld
+        state: reloaded
+      ignore_errors: true
+
+    # Add workshop service runtime-only (intentionally no --permanent per lab)
+    # Do NOT reload after this step — a reload would flush the runtime rule
+    - name: Add workshop service to public zone (runtime only — no permanent)
+      ansible.posix.firewalld:
+        service: workshop
+        zone: public
+        state: enabled
+        permanent: false
+        immediate: true
+      register: r_workshop_runtime
+      ignore_errors: true
+
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script              : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          ports 8080/8443 added         : {{ 'ok' if r_add_8080 is not failed and r_add_8443 is not failed else 'NOT ok' }}
+          customconfigs script          : {{ 'ok' if r_customconfigs.rc == 0 else 'NOT ok' }}
+          workshop.xml imported         : {{ 'ok' if r_import_workshop is not failed else 'NOT ok' }}
+          workshop service (runtime)    : {{ 'ok' if r_workshop_runtime is not failed else 'NOT ok' }}
+          finish script                 : {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}

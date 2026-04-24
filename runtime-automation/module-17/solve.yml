@@ -1,0 +1,219 @@
+---
+- name: Storage DeDup (lvm, vdo) — Advanced Solve
+  hosts: node3
+  gather_facts: false
+  become: true
+
+  tasks:
+
+    - name: Run workshop-vdo-checkhost.sh
+      ansible.builtin.shell: workshop-vdo-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    - name: Install vdo package
+      ansible.builtin.dnf:
+        name: vdo
+        state: present
+
+    # ---------------------------------------------------------------
+    # Phase 1 — Linear Volume
+    # ---------------------------------------------------------------
+    - name: Phase 1 cleanup — unmount /mnt/lab*
+      ansible.builtin.shell: umount /mnt/lab* || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 1 cleanup — remove vg_lab
+      ansible.builtin.shell: vgremove -ff vg_lab || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 1 cleanup — remove PV labels
+      ansible.builtin.shell: pvremove /dev/vdb /dev/vdc /dev/vdd /dev/vde || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 1 cleanup — wipefs all data disks
+      ansible.builtin.shell: wipefs -a /dev/vdb /dev/vdc /dev/vdd /dev/vde || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 1 cleanup — partprobe
+      ansible.builtin.shell: partprobe
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 1 — pvcreate /dev/vdb
+      ansible.builtin.shell: pvcreate /dev/vdb
+      register: r_pvcreate1
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 1 — vgcreate vg_lab /dev/vdb
+      ansible.builtin.shell: vgcreate vg_lab /dev/vdb
+      register: r_vgcreate1
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 1 — lvcreate lab1 (95%FREE)
+      ansible.builtin.shell: lvcreate -y -n lab1 -l 95%FREE vg_lab
+      register: r_lvcreate1
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 1 — mkfs.ext4 /dev/vg_lab/lab1
+      ansible.builtin.shell: mkfs -t ext4 /dev/vg_lab/lab1
+      register: r_mkfs1
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 1 — mkdir /mnt/lab1
+      ansible.builtin.file:
+        path: /mnt/lab1
+        state: directory
+        mode: "0755"
+
+    - name: Phase 1 — mount /dev/vg_lab/lab1 at /mnt/lab1
+      ansible.posix.mount:
+        src: /dev/vg_lab/lab1
+        path: /mnt/lab1
+        fstype: ext4
+        state: mounted
+      ignore_errors: true
+
+    # ---------------------------------------------------------------
+    # Phase 2 — Extend Linear Volume
+    # ---------------------------------------------------------------
+    - name: Phase 2 — pvcreate /dev/vdc
+      ansible.builtin.shell: pvcreate /dev/vdc
+      register: r_pvcreate2
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 2 — vgextend vg_lab /dev/vdc
+      ansible.builtin.shell: vgextend vg_lab /dev/vdc
+      register: r_vgextend
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 2 — lvresize lab1 to 95%VG
+      ansible.builtin.shell: lvresize -l 95%VG /dev/vg_lab/lab1
+      register: r_lvresize
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 2 — resize2fs /dev/vg_lab/lab1
+      ansible.builtin.shell: resize2fs /dev/vg_lab/lab1
+      register: r_resize2fs
+      changed_when: true
+      ignore_errors: true
+
+    # ---------------------------------------------------------------
+    # Phase 3 — RAID-10 + VDO
+    # ---------------------------------------------------------------
+    - name: Phase 3 cleanup — unmount /mnt/lab*
+      ansible.builtin.shell: umount /mnt/lab* || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 3 cleanup — remove vg_lab
+      ansible.builtin.shell: vgremove -ff vg_lab || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 3 cleanup — remove PV labels from all disks
+      ansible.builtin.shell: pvremove /dev/vdb /dev/vdc /dev/vdd /dev/vde || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 3 cleanup — wipefs all data disks
+      ansible.builtin.shell: wipefs -a /dev/vdb /dev/vdc /dev/vdd /dev/vde || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 3 cleanup — partprobe
+      ansible.builtin.shell: partprobe
+      changed_when: false
+      ignore_errors: true
+
+    - name: Phase 3 — pvcreate all 4 data disks
+      ansible.builtin.shell: pvcreate /dev/vdb /dev/vdc /dev/vdd /dev/vde
+      register: r_pvcreate4
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 3 — vgcreate vg_lab across all 4 disks
+      ansible.builtin.shell: vgcreate vg_lab /dev/vdb /dev/vdc /dev/vdd /dev/vde
+      register: r_vgcreate4
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 3 — lvcreate RAID-10 (lv_raid10)
+      ansible.builtin.shell: lvcreate -y --type raid10 -m1 -i 2 -n lv_raid10 -l 95%FREE vg_lab
+      register: r_lvcreate_raid10
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 3 — lvconvert to VDO pool (async — long running)
+      ansible.builtin.shell: lvconvert --type vdo-pool --name=lab2 -V 30G vg_lab/lv_raid10 -y
+      register: r_lvconvert_vdo
+      async: 300
+      poll: 15
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 3 — mkfs.xfs -K /dev/mapper/vg_lab-lab2
+      ansible.builtin.shell: mkfs.xfs -K /dev/mapper/vg_lab-lab2
+      register: r_mkfs_xfs
+      changed_when: true
+      ignore_errors: true
+
+    - name: Phase 3 — mkdir /mnt/lab2
+      ansible.builtin.file:
+        path: /mnt/lab2
+        state: directory
+        mode: "0755"
+
+    - name: Phase 3 — mount /dev/mapper/vg_lab-lab2 at /mnt/lab2
+      ansible.posix.mount:
+        src: /dev/mapper/vg_lab-lab2
+        path: /mnt/lab2
+        fstype: xfs
+        state: mounted
+      ignore_errors: true
+
+    - name: Phase 3 — create 20 sample directories
+      ansible.builtin.shell: for i in {1..20}; do mktemp -d /mnt/lab2/XXXXXX; done
+      register: r_mkdirs
+      changed_when: true
+      ignore_errors: true
+
+    # Copy ~170MB locale data into each dir — generates ~3.5GB of duplicate data
+    - name: Phase 3 — populate directories with locale data (async — several minutes)
+      ansible.builtin.shell: for i in /mnt/lab2/*; do echo "${i}"; cp -rf /usr/share/locale $i; done
+      register: r_populate
+      async: 600
+      poll: 30
+      changed_when: true
+      ignore_errors: true
+
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          vdo installed        : ok
+          Phase 1 linear vol   : {{ 'ok' if r_mkfs1 is not failed else 'NOT ok' }}
+          Phase 2 extend       : {{ 'ok' if r_resize2fs is not failed else 'NOT ok' }}
+          Phase 3 RAID-10 LV   : {{ 'ok' if r_lvcreate_raid10 is not failed else 'NOT ok' }}
+          Phase 3 VDO pool     : {{ 'ok' if r_lvconvert_vdo is not failed else 'NOT ok' }}
+          Phase 3 /mnt/lab2    : {{ 'ok' if r_mkfs_xfs is not failed else 'NOT ok' }}
+          Phase 3 data         : {{ 'ok' if r_populate is not failed else 'NOT ok' }}
+          finish script        : {{ 'ok' if r_finish.rc == 0 else 'NOT ok (ignored)' }}

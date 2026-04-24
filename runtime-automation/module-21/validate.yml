@@ -1,0 +1,190 @@
+---
+- name: BPF Tracing (ebpf) Validation
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    workshop_tmp_file: /tmp/workshop.tmp
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — bcc-tools package installed
+    # -------------------------------------------------------
+    - name: Check bcc-tools is installed
+      ansible.builtin.command:
+        cmd: rpm -q bcc-tools
+      register: r_bcc_tools
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — bpftrace package installed
+    # -------------------------------------------------------
+    - name: Check bpftrace is installed
+      ansible.builtin.command:
+        cmd: rpm -q bpftrace
+      register: r_bpftrace_pkg
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — strace package installed
+    # -------------------------------------------------------
+    - name: Check strace is installed
+      ansible.builtin.command:
+        cmd: rpm -q strace
+      register: r_strace_pkg
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 4 — kernel-devel for running kernel installed
+    # -------------------------------------------------------
+    - name: Gather running kernel version
+      ansible.builtin.command:
+        cmd: uname -r
+      register: r_uname
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check kernel-devel matching running kernel is installed
+      ansible.builtin.command:
+        cmd: "rpm -q kernel-devel-{{ r_uname.stdout | trim }}"
+      register: r_kernel_devel
+      changed_when: false
+      ignore_errors: true
+      when: r_uname.rc | default(1) == 0
+
+    # -------------------------------------------------------
+    # Check 5 — /usr/share/bcc/tools/execsnoop exists
+    # -------------------------------------------------------
+    - name: Check /usr/share/bcc/tools/execsnoop exists
+      ansible.builtin.stat:
+        path: /usr/share/bcc/tools/execsnoop
+      register: r_execsnoop
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 6 — /dev/shm mounted as tmpfs
+    # -------------------------------------------------------
+    - name: Check /dev/shm is mounted as tmpfs
+      ansible.builtin.shell:
+        cmd: grep -E '^tmpfs /dev/shm' /proc/mounts
+      register: r_shm
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 7 — /tmp/workshop.tmp exists
+    # -------------------------------------------------------
+    - name: Check /tmp/workshop.tmp exists
+      ansible.builtin.stat:
+        path: "{{ workshop_tmp_file }}"
+      register: r_workshop_tmp
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 8 — strace -c cat /tmp/workshop.tmp contains 'openat'
+    # strace writes its summary to stderr; check both streams
+    # -------------------------------------------------------
+    - name: Run strace -c cat /tmp/workshop.tmp
+      ansible.builtin.shell:
+        cmd: "strace -c cat {{ workshop_tmp_file }}"
+      register: r_strace
+      changed_when: false
+      failed_when: false
+      ignore_errors: true
+      when: r_workshop_tmp.stat is defined and r_workshop_tmp.stat.exists
+
+    # -------------------------------------------------------
+    # Check 9 — bpftrace all-syscalls probe contains sys_enter_openat
+    # Use -c flag so bpftrace exits when the traced command finishes
+    # -------------------------------------------------------
+    - name: Run bpftrace all-syscalls probe against cat /tmp/workshop.tmp
+      ansible.builtin.shell: >
+        bpftrace
+        -e 'tracepoint:syscalls:sys_enter_* { if (comm == "cat") { @[probe] = count(); } }'
+        -c "cat {{ workshop_tmp_file }}"
+      register: r_bpftrace_all
+      changed_when: false
+      failed_when: false
+      ignore_errors: true
+      when: r_workshop_tmp.stat is defined and r_workshop_tmp.stat.exists
+
+    # -------------------------------------------------------
+    # Build result booleans
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_bcc_tools.rc | default(1) == 0 }}"
+        _task2_ok: "{{ r_bpftrace_pkg.rc | default(1) == 0 }}"
+        _task3_ok: "{{ r_strace_pkg.rc | default(1) == 0 }}"
+        _task4_ok: "{{ r_kernel_devel.rc | default(1) == 0 }}"
+        _task5_ok: "{{ r_execsnoop.stat is defined and r_execsnoop.stat.exists }}"
+        _task6_ok: "{{ r_shm.rc | default(1) == 0 and '/dev/shm' in (r_shm.stdout | default('')) }}"
+        _task7_ok: "{{ r_workshop_tmp.stat is defined and r_workshop_tmp.stat.exists }}"
+        _task8_ok: >-
+          {{
+            r_strace is not skipped and
+            r_strace.rc | default(1) == 0 and
+            ('openat' in (r_strace.stderr | default('')) or 'openat' in (r_strace.stdout | default('')))
+          }}
+        _task9_ok: >-
+          {{
+            r_bpftrace_all is not skipped and
+            r_bpftrace_all.rc | default(1) == 0 and
+            'sys_enter_openat' in (r_bpftrace_all.stdout | default(''))
+          }}
+
+    # -------------------------------------------------------
+    # Validation check
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ '[ok]' if _task1_ok else '[FAILED]' }} Task 1: bcc-tools installed{{ '' if _task1_ok else ' — run: dnf install -y bcc-tools' }}
+          {{ '[ok]' if _task2_ok else '[FAILED]' }} Task 2: bpftrace installed{{ '' if _task2_ok else ' — run: dnf install -y bpftrace' }}
+          {{ '[ok]' if _task3_ok else '[FAILED]' }} Task 3: strace installed{{ '' if _task3_ok else ' — run: dnf install -y strace' }}
+          {{ '[ok]' if _task4_ok else '[FAILED]' }} Task 4: kernel-devel (running kernel) installed{{ '' if _task4_ok else ' — run: dnf install -y kernel-devel-$(uname -r)' }}
+          {{ '[ok]' if _task5_ok else '[FAILED]' }} Task 5: /usr/share/bcc/tools/execsnoop exists{{ '' if _task5_ok else ' — bcc-tools may not be fully installed' }}
+          {{ '[ok]' if _task6_ok else '[FAILED]' }} Task 6: /dev/shm mounted as tmpfs{{ '' if _task6_ok else ' — run: mount -t tmpfs tmpfs /dev/shm' }}
+          {{ '[ok]' if _task7_ok else '[FAILED]' }} Task 7: /tmp/workshop.tmp exists{{ '' if _task7_ok else ' — run: touch /tmp/workshop.tmp' }}
+          {{ '[ok]' if _task8_ok else '[FAILED]' }} Task 8: strace openat confirmed{{ '' if _task8_ok else ' — run: strace -c cat /tmp/workshop.tmp and verify openat appears in output' }}
+          {{ '[ok]' if _task9_ok else '[FAILED]' }} Task 9: bpftrace sys_enter_openat confirmed{{ '' if _task9_ok else ' — run bpftrace -e tracepoint:syscalls:sys_enter_* and check output' }}
+      when: >-
+        not (
+          _task1_ok | bool and
+          _task2_ok | bool and
+          _task3_ok | bool and
+          _task4_ok | bool and
+          _task5_ok | bool and
+          _task6_ok | bool and
+          _task7_ok | bool and
+          _task8_ok | bool and
+          _task9_ok | bool
+        )
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: bcc-tools installed
+          Task 2: bpftrace installed
+          Task 3: strace installed
+          Task 4: kernel-devel (running kernel) installed
+          Task 5: /usr/share/bcc/tools/execsnoop exists
+          Task 6: /dev/shm mounted as tmpfs
+          Task 7: /tmp/workshop.tmp exists
+          Task 8: strace -c cat confirmed openat syscall
+          Task 9: bpftrace all-syscalls probe confirmed sys_enter_openat
+      when: >-
+        _task1_ok | bool and
+        _task2_ok | bool and
+        _task3_ok | bool and
+        _task4_ok | bool and
+        _task5_ok | bool and
+        _task6_ok | bool and
+        _task7_ok | bool and
+        _task8_ok | bool and
+        _task9_ok | bool

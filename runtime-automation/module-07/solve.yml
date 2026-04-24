@@ -1,0 +1,61 @@
+---
+- name: Module 07 — RHEL Lightspeed pt.1 (Fundamental) Solve
+  hosts: node2
+  gather_facts: false
+  become: true
+  tasks:
+
+    - name: Run workshop-lightspeed-checkhost.sh
+      ansible.builtin.command:
+        cmd: workshop-lightspeed-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    - name: CLA query — what is red hat enterprise linux
+      ansible.builtin.command:
+        cmd: c "what is red hat enterprise linux"
+      register: r_cla_01
+      changed_when: false
+      ignore_errors: true
+
+    - name: CLA query — what is red hat enterprise linux in 30 words or less
+      ansible.builtin.command:
+        cmd: c "what is red hat enterprise linux in 30 words or less"
+      register: r_cla_02
+      changed_when: false
+      ignore_errors: true
+
+    - name: CLA query — intentional typos (memory check)
+      ansible.builtin.command:
+        cmd: c "hwo mcuh memonry is left on symtset"
+      register: r_cla_03
+      changed_when: false
+      ignore_errors: true
+
+    - name: CLA query — out-of-scope demo (sandhill crane)
+      ansible.builtin.command:
+        cmd: c "what is the genus of a sandhill crane"
+      register: r_cla_04
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.command:
+        cmd: workshop-finish-exercise.sh
+      become: false
+      environment:
+        SUDO_USER: ztrunner
+      register: r_finish
+      changed_when: false
+      failed_when: false
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script  : {{ 'ok' if r_checkhost.rc == 0 else 'FAILED (rc=' + (r_checkhost.rc | string) + ')' }}
+          CLA query 1       : {{ 'ok' if r_cla_01.rc == 0 else 'FAILED (rc=' + (r_cla_01.rc | string) + ')' }}
+          CLA query 2       : {{ 'ok' if r_cla_02.rc == 0 else 'FAILED (rc=' + (r_cla_02.rc | string) + ')' }}
+          CLA query 3 (typo): {{ 'ok' if r_cla_03.rc == 0 else 'FAILED (rc=' + (r_cla_03.rc | string) + ')' }}
+          CLA query 4 (oos) : {{ 'ok' if r_cla_04.rc == 0 else 'FAILED (rc=' + (r_cla_04.rc | string) + ')' }}
+          finish script     : {{ 'ok' if r_finish.rc == 0 else 'FAILED (rc=' + (r_finish.rc | string) + ')' }}

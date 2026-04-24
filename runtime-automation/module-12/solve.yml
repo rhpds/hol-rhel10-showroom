@@ -1,0 +1,223 @@
+---
+- name: Containers pt.2 (buildah, skopeo) — Intermediate Solve
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    working_container: "ubi-working-container"
+    image_name: "webserver2"
+    tarball_dir: "/root/ubi-tarball"
+
+  tasks:
+
+    - name: Run workshop-buildah-checkhost.sh
+      ansible.builtin.command: workshop-buildah-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    - name: Assert workshop-buildah-checkhost.sh passed
+      ansible.builtin.assert:
+        that: r_checkhost.rc == 0
+        fail_msg: "workshop-buildah-checkhost.sh returned rc={{ r_checkhost.rc }} — wrong host or environment not ready"
+        success_msg: "Host check passed"
+
+    - name: Stat /var/tmp/buildah-dan-cries.txt
+      ansible.builtin.stat:
+        path: /var/tmp/buildah-dan-cries.txt
+      register: r_dan_cries
+      ignore_errors: true
+
+    - name: Assert buildah-dan-cries.txt is present
+      ansible.builtin.assert:
+        that: r_dan_cries.stat.exists
+        fail_msg: "/var/tmp/buildah-dan-cries.txt not found — pre-stage script may not have run"
+        success_msg: "buildah-dan-cries.txt present"
+
+    - name: Stat /var/tmp/buildah-index.html
+      ansible.builtin.stat:
+        path: /var/tmp/buildah-index.html
+      register: r_index_html
+      ignore_errors: true
+
+    - name: Assert buildah-index.html is present
+      ansible.builtin.assert:
+        that: r_index_html.stat.exists
+        fail_msg: "/var/tmp/buildah-index.html not found — pre-stage script may not have run"
+        success_msg: "buildah-index.html present"
+
+    # Clean up any stale working container or image for idempotency
+    - name: Remove stale ubi-working-container if it exists
+      ansible.builtin.command: buildah rm {{ working_container }}
+      register: r_rm_stale
+      changed_when: r_rm_stale.rc == 0
+      failed_when: false
+      ignore_errors: true
+
+    - name: Remove existing webserver2 image if it exists
+      ansible.builtin.command: podman rmi -f localhost/{{ image_name }}:latest
+      register: r_rmi_old
+      changed_when: r_rmi_old.rc == 0
+      failed_when: false
+      ignore_errors: true
+
+    - name: buildah from registry.access.redhat.com/ubi10/ubi:latest
+      ansible.builtin.command: buildah from registry.access.redhat.com/ubi10/ubi:latest
+      register: r_buildah_from
+      changed_when: true
+      ignore_errors: true
+
+    - name: buildah copy dan-cries.txt into working container
+      ansible.builtin.command: >
+        buildah copy {{ working_container }}
+        /var/tmp/buildah-dan-cries.txt
+        /var/www/html/dan-cries.txt
+      register: r_copy_dan
+      changed_when: true
+      ignore_errors: true
+
+    # dnf install inside buildah is slow — async 300s
+    - name: buildah run dnf install httpd (async, up to 300s)
+      ansible.builtin.command: buildah run {{ working_container }} dnf install -y httpd
+      register: r_dnf
+      async: 300
+      poll: 10
+      changed_when: true
+      ignore_errors: true
+
+    - name: buildah config --cmd httpd foreground
+      ansible.builtin.command: >
+        buildah config --cmd "/usr/sbin/httpd -D FOREGROUND" {{ working_container }}
+      register: r_config
+      changed_when: true
+      ignore_errors: true
+
+    # Mount + copy index.html — MUST be single shell invocation (cwd dependency)
+    - name: Mount working container and copy index.html (single shell)
+      ansible.builtin.shell: |
+        set -e
+        MOUNTPOINT=$(buildah mount {{ working_container }})
+        cd "$MOUNTPOINT"
+        cp /var/tmp/buildah-index.html ./var/www/html/index.html
+      register: r_mount_copy
+      changed_when: true
+      ignore_errors: true
+
+    - name: buildah unmount working container (from /root)
+      ansible.builtin.shell: |
+        cd /root
+        buildah unmount {{ working_container }}
+      register: r_unmount
+      changed_when: true
+      ignore_errors: true
+
+    - name: buildah commit ubi-working-container to webserver2
+      ansible.builtin.command: buildah commit {{ working_container }} {{ image_name }}
+      register: r_commit
+      changed_when: true
+      ignore_errors: true
+
+    - name: Stop any containers already using port 8080
+      ansible.builtin.shell: |
+        podman stop --all 2>/dev/null || true
+        podman rm --all 2>/dev/null || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: podman run -d -p 8080:80 webserver2
+      ansible.builtin.command: podman run -d -p 8080:80 {{ image_name }}
+      register: r_podman_run
+      changed_when: true
+      ignore_errors: true
+
+    - name: Wait for httpd to be ready on port 8080
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 8080
+        timeout: 30
+      ignore_errors: true
+
+    - name: curl http://localhost:8080/ (assert HTTP 200 and SELinux content)
+      ansible.builtin.uri:
+        url: "http://localhost:8080/"
+        method: GET
+        return_content: true
+        validate_certs: false
+        timeout: 15
+        status_code: [200]
+      register: r_curl_index
+      ignore_errors: true
+
+    - name: Assert index.html contains 'Stop Disabling SELinux'
+      ansible.builtin.assert:
+        that: "'Stop Disabling SELinux' in r_curl_index.content"
+        fail_msg: "index.html response did not contain expected text"
+        success_msg: "index.html check passed"
+      when: r_curl_index is not failed
+
+    - name: curl http://localhost:8080/dan-cries.txt
+      ansible.builtin.uri:
+        url: "http://localhost:8080/dan-cries.txt"
+        method: GET
+        return_content: true
+        validate_certs: false
+        timeout: 15
+        status_code: [200]
+      register: r_curl_dan
+      ignore_errors: true
+
+    - name: Assert dan-cries.txt contains expected text
+      ansible.builtin.assert:
+        that: "'Every time you run setenforce 0' in r_curl_dan.content"
+        fail_msg: "dan-cries.txt response did not contain expected text"
+        success_msg: "dan-cries.txt check passed"
+      when: r_curl_dan is not failed
+
+    - name: Create /root/ubi-tarball directory
+      ansible.builtin.file:
+        path: "{{ tarball_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: skopeo copy ubi-minimal:latest to /root/ubi-tarball (async — network dependent)
+      ansible.builtin.command: >
+        skopeo copy
+        docker://registry.access.redhat.com/ubi10/ubi-minimal:latest
+        dir:{{ tarball_dir }}
+      register: r_skopeo
+      changed_when: true
+      async: 180
+      poll: 10
+      ignore_errors: true
+
+    # Cleanup AFTER all assertions
+    - name: Cleanup all containers and images
+      ansible.builtin.shell: |
+        podman stop --all  2>/dev/null || true
+        podman rm --all    2>/dev/null || true
+        buildah rm --all   2>/dev/null || true
+        podman rmi --all   2>/dev/null || true
+        buildah rmi --all  2>/dev/null || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          HOST CHECK         : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          PRE-STAGED FILES   : dan-cries={{ 'ok' if r_dan_cries.stat.exists else 'MISSING' }}  index.html={{ 'ok' if r_index_html.stat.exists else 'MISSING' }}
+          BUILDAH FROM       : {{ 'ok' if 'ubi-working-container' in (r_buildah_from.stdout | default('')) else 'NOT ok' }}
+          DNF INSTALL HTTPD  : {{ 'ok' if r_dnf.rc == 0 else 'NOT ok' }}
+          BUILDAH COMMIT     : {{ 'ok' if r_commit.rc == 0 else 'NOT ok' }}
+          PODMAN RUN         : {{ 'ok' if r_podman_run.rc == 0 else 'NOT ok' }}
+          CURL INDEX.HTML    : {{ 'ok' if 'Stop Disabling SELinux' in (r_curl_index.content | default('')) else 'NOT ok' }}
+          CURL DAN-CRIES.TXT : {{ 'ok' if 'Every time you run setenforce 0' in (r_curl_dan.content | default('')) else 'NOT ok' }}
+          SKOPEO COPY        : {{ 'ok' if r_skopeo.rc == 0 else 'NOT ok' }}
+          FINISH SCRIPT      : {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}

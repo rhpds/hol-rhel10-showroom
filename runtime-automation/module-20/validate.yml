@@ -1,0 +1,84 @@
+---
+- name: Session Logging (tlog) Validation
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    target_user: other-user
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — authselect profile includes with-tlog
+    # (lab_setup uses: authselect select sssd with-tlog)
+    # The tlog-rec-session PAM rule is injected via authselect's with-tlog
+    # feature, not written directly into /etc/pam.d/system-auth.
+    # -------------------------------------------------------
+    - name: Check authselect with-tlog feature is active
+      ansible.builtin.command:
+        cmd: authselect current --raw
+      register: r_authselect
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — journalctl contains TLOG_USER and TLOG_REC for other-user
+    # -------------------------------------------------------
+    - name: Query journalctl for tlog entries (other-user)
+      ansible.builtin.command:
+        cmd: >
+          journalctl --no-pager -o verbose
+          --output-fields=TLOG_USER,TLOG_REC
+          TLOG_USER=other-user
+      register: r_journal
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — workshop-tlog-playback.sh exits 0 and prints "Playback Finished"
+    # tlog-play requires a TTY; wrap in 'script -q -c ...' to provide one.
+    # -------------------------------------------------------
+    - name: Run workshop-tlog-playback.sh via script (TTY wrapper)
+      ansible.builtin.shell: |
+        script -q -c "workshop-tlog-playback.sh" /dev/null
+      register: r_playback
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Build result booleans
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ 'with-tlog' in (r_authselect.stdout | default('')) }}"
+        _task2_ok: >-
+          {{
+            'TLOG_USER' in (r_journal.stdout | default('')) and
+            'TLOG_REC'  in (r_journal.stdout | default(''))
+          }}
+        _task3_ok: >-
+          {{
+            r_playback is defined and
+            r_playback.rc | default(1) == 0 and
+            'Playback Finished' in (r_playback.stdout | default(''))
+          }}
+
+    # -------------------------------------------------------
+    # Validation check
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: authselect with-tlog feature is active' if _task1_ok else 'Task 1: FAILED — authselect with-tlog not active; run: authselect select sssd with-tlog --force on node1 as root' }}
+          {{ 'Task 2: journalctl contains TLOG_USER and TLOG_REC entries for other-user' if _task2_ok else 'Task 2: FAILED — no tlog journal entries for other-user; run: su - other-user -c "ls -l /etc; cat /etc/passwd; sudo cat /etc/shadow" on node1 then click Validate again' }}
+          {{ 'Task 3: workshop-tlog-playback.sh completed successfully' if _task3_ok else 'Task 3: FAILED — playback did not finish (rc=' + (r_playback.rc | default(1) | string) + '); if a session was just logged the journal may still be flushing — wait 30 s and click Validate again' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: authselect with-tlog feature is active
+          Task 2: journalctl contains TLOG_USER and TLOG_REC entries for other-user
+          Task 3: workshop-tlog-playback.sh completed — Playback Finished
+      when: _task1_ok and _task2_ok and _task3_ok

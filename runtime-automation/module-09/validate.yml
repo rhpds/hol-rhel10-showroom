@@ -1,0 +1,108 @@
+---
+- name: Service Management pt.2 (systemd) — Validation
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    httpd_dropin_file: /etc/systemd/system/httpd.service.d/50-httpd.conf
+    mariadb_dropin_file: /etc/systemd/system/mariadb.service.d/override.conf
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — httpd drop-in file exists with correct content
+    # -------------------------------------------------------
+    - name: Slurp httpd drop-in file
+      ansible.builtin.slurp:
+        src: "{{ httpd_dropin_file }}"
+      register: r_httpd_dropin
+      ignore_errors: true
+
+    - name: Decode httpd drop-in content
+      ansible.builtin.set_fact:
+        _httpd_dropin_content: "{{ (r_httpd_dropin.content | default('')) | b64decode }}"
+      when: r_httpd_dropin is not failed
+
+    - name: Set httpd drop-in content to empty string when file missing
+      ansible.builtin.set_fact:
+        _httpd_dropin_content: ""
+      when: r_httpd_dropin is failed
+
+    # -------------------------------------------------------
+    # Check 2 — httpd service is active (running)
+    # -------------------------------------------------------
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    # -------------------------------------------------------
+    # Check 3 — mariadb drop-in file exists with correct content
+    # -------------------------------------------------------
+    - name: Slurp mariadb override file
+      ansible.builtin.slurp:
+        src: "{{ mariadb_dropin_file }}"
+      register: r_mariadb_dropin
+      ignore_errors: true
+
+    - name: Decode mariadb drop-in content
+      ansible.builtin.set_fact:
+        _mariadb_dropin_content: "{{ (r_mariadb_dropin.content | default('')) | b64decode }}"
+      when: r_mariadb_dropin is not failed
+
+    - name: Set mariadb drop-in content to empty string when file missing
+      ansible.builtin.set_fact:
+        _mariadb_dropin_content: ""
+      when: r_mariadb_dropin is failed
+
+    # -------------------------------------------------------
+    # Build per-task result booleans
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        # Task 1a: 50-httpd.conf exists and contains Restart=always
+        _task1a_ok: >-
+          {{ r_httpd_dropin is not failed and
+             'Restart=always' in _httpd_dropin_content }}
+        # Task 1b: 50-httpd.conf contains OOMScoreAdjust=-1000
+        _task1b_ok: >-
+          {{ r_httpd_dropin is not failed and
+             'OOMScoreAdjust=-1000' in _httpd_dropin_content }}
+        # Task 2: httpd service active (running)
+        _task2_ok: >-
+          {{ ansible_facts.services['httpd.service'] is defined and
+             ansible_facts.services['httpd.service'].state == 'running' }}
+        # Task 3a: override.conf exists and contains [Service] section
+        _task3a_ok: >-
+          {{ r_mariadb_dropin is not failed and
+             '[Service]' in _mariadb_dropin_content }}
+        # Task 3b: override.conf contains Restart=always
+        _task3b_ok: >-
+          {{ r_mariadb_dropin is not failed and
+             'Restart=always' in _mariadb_dropin_content }}
+        # Task 4: mariadb service active (running)
+        _task4_ok: >-
+          {{ ansible_facts.services['mariadb.service'] is defined and
+             ansible_facts.services['mariadb.service'].state == 'running' }}
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1a: 50-httpd.conf has Restart=always' if _task1a_ok else 'FAILED — Task 1a: 50-httpd.conf missing or does not contain Restart=always — run Solve or execute workshop-systemd-httpdconfig.sh then systemctl daemon-reload' }}
+          {{ 'Task 1b: 50-httpd.conf has OOMScoreAdjust=-1000' if _task1b_ok else 'FAILED — Task 1b: 50-httpd.conf missing or does not contain OOMScoreAdjust=-1000 — run Solve or execute workshop-systemd-httpdconfig.sh then systemctl daemon-reload' }}
+          {{ 'Task 2: httpd is active (running)' if _task2_ok else 'FAILED — Task 2: httpd service is not running — run: systemctl start httpd' }}
+          {{ 'Task 3a: override.conf has [Service] section' if _task3a_ok else 'FAILED — Task 3a: /etc/systemd/system/mariadb.service.d/override.conf missing or has no [Service] section — run Solve or create the file with [Service] and Restart=always' }}
+          {{ 'Task 3b: override.conf has Restart=always' if _task3b_ok else 'FAILED — Task 3b: override.conf missing or does not contain Restart=always — run Solve or add Restart=always under [Service]' }}
+          {{ 'Task 4: mariadb is active (running)' if _task4_ok else 'FAILED — Task 4: mariadb service is not running — run: systemctl start mariadb' }}
+      when: not (_task1a_ok and _task1b_ok and _task2_ok and _task3a_ok and _task3b_ok and _task4_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: /etc/systemd/system/httpd.service.d/50-httpd.conf exists with Restart=always and OOMScoreAdjust=-1000
+          Task 2: httpd service is active (running)
+          Task 3: /etc/systemd/system/mariadb.service.d/override.conf exists with [Service] and Restart=always
+          Task 4: mariadb service is active (running)
+      when: _task1a_ok and _task1b_ok and _task2_ok and _task3a_ok and _task3b_ok and _task4_ok

@@ -1,0 +1,171 @@
+---
+- name: Storage Mgmt pt.1 (stratis) — Validation
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    pool_name: summitpool
+    fs_name: summitfs
+    mount_point: /summitdir
+    stratis_device: /dev/stratis/summitpool/summitfs
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — stratisd and stratis-cli packages installed
+    # -------------------------------------------------------
+    - name: Check stratisd package is installed
+      ansible.builtin.shell: rpm -q stratisd
+      register: r_pkg_stratisd
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check stratis-cli package is installed
+      ansible.builtin.shell: rpm -q stratis-cli
+      register: r_pkg_cli
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — stratisd.service is active and enabled
+    # -------------------------------------------------------
+    - name: Check stratisd service is active
+      ansible.builtin.shell: systemctl is-active stratisd
+      register: r_svc_active
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check stratisd service is enabled
+      ansible.builtin.shell: systemctl is-enabled stratisd
+      register: r_svc_enabled
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — summitpool exists with /dev/vdb and /dev/vdc
+    # -------------------------------------------------------
+    - name: Check summitpool exists
+      ansible.builtin.shell: stratis pool list | grep -q summitpool && echo found || echo missing
+      register: r_pool
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check /dev/vdb is a member of summitpool
+      ansible.builtin.shell: stratis blockdev list summitpool | grep -q /dev/vdb && echo found || echo missing
+      register: r_vdb
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check /dev/vdc is a member of summitpool
+      ansible.builtin.shell: stratis blockdev list summitpool | grep -q /dev/vdc && echo found || echo missing
+      register: r_vdc
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 4 — summitfs filesystem exists in summitpool
+    # -------------------------------------------------------
+    - name: Check summitfs filesystem exists
+      ansible.builtin.shell: stratis fs list summitpool | grep -q summitfs && echo found || echo missing
+      register: r_fs
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 5 — /summitdir directory exists
+    # -------------------------------------------------------
+    - name: Check /summitdir directory exists
+      ansible.builtin.shell: test -d /summitdir && echo found || echo missing
+      register: r_dir
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 6 — Stratis filesystem is mounted at /summitdir
+    # -------------------------------------------------------
+    - name: Check summitfs is mounted at /summitdir
+      ansible.builtin.shell: df | grep -q /summitdir && echo mounted || echo missing
+      register: r_mount
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 7 — /etc/fstab has UUID entry for /summitdir
+    #            with fstype xfs and x-systemd.requires
+    # -------------------------------------------------------
+    - name: Check fstab has UUID entry for /summitdir with xfs and x-systemd.requires
+      ansible.builtin.shell: >
+        grep -q '/summitdir' /etc/fstab &&
+        grep '/summitdir' /etc/fstab | grep -q 'UUID=' &&
+        grep '/summitdir' /etc/fstab | grep -q 'xfs' &&
+        grep '/summitdir' /etc/fstab | grep -q 'x-systemd.requires=stratisd.service' &&
+        echo found || echo missing
+      register: r_fstab
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Build results
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_pkg_ok: >-
+          {{ r_pkg_stratisd.rc | default(1) == 0 and r_pkg_cli.rc | default(1) == 0 }}
+        _task2_svc_ok: >-
+          {{ 'active' in (r_svc_active.stdout | default('')) and
+             'enabled' in (r_svc_enabled.stdout | default('')) }}
+        _task3_pool_ok: >-
+          {{ 'found' in (r_pool.stdout | default('')) and
+             'found' in (r_vdb.stdout | default('')) and
+             'found' in (r_vdc.stdout | default('')) }}
+        _task4_fs_ok: >-
+          {{ 'found' in (r_fs.stdout | default('')) }}
+        _task5_dir_ok: >-
+          {{ 'found' in (r_dir.stdout | default('')) }}
+        _task6_mount_ok: >-
+          {{ 'mounted' in (r_mount.stdout | default('')) }}
+        _task7_fstab_ok: >-
+          {{ 'found' in (r_fstab.stdout | default('')) }}
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1 PASSED' if _task1_pkg_ok | bool else 'Task 1 FAILED — stratisd or stratis-cli not installed — run: dnf install stratisd stratis-cli' }}
+          {{ 'Task 2 PASSED' if _task2_svc_ok | bool else 'Task 2 FAILED — stratisd.service is not active/enabled — run: systemctl enable --now stratisd' }}
+          {{ 'Task 3 PASSED' if _task3_pool_ok | bool else 'Task 3 FAILED — summitpool missing or /dev/vdb /dev/vdc not members — run: stratis pool create summitpool /dev/vdb /dev/vdc' }}
+          {{ 'Task 4 PASSED' if _task4_fs_ok | bool else 'Task 4 FAILED — summitfs not found in summitpool — run: stratis fs create summitpool summitfs' }}
+          {{ 'Task 5 PASSED' if _task5_dir_ok | bool else 'Task 5 FAILED — /summitdir does not exist — run: mkdir /summitdir' }}
+          {{ 'Task 6 PASSED' if _task6_mount_ok | bool else 'Task 6 FAILED — /dev/stratis/summitpool/summitfs not mounted at /summitdir — run: mount /dev/stratis/summitpool/summitfs /summitdir' }}
+          {{ 'Task 7 PASSED' if _task7_fstab_ok | bool else 'Task 7 FAILED — /etc/fstab missing UUID entry for /summitdir with xfs and x-systemd.requires=stratisd.service — add the correct fstab line using the UUID from: lsblk -n -o uuid /dev/stratis/summitpool/summitfs' }}
+      when: not (
+              _task1_pkg_ok | bool and
+              _task2_svc_ok | bool and
+              _task3_pool_ok | bool and
+              _task4_fs_ok | bool and
+              _task5_dir_ok | bool and
+              _task6_mount_ok | bool and
+              _task7_fstab_ok | bool
+            )
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: stratisd and stratis-cli packages installed
+          Task 2: stratisd.service is active and enabled
+          Task 3: summitpool exists with /dev/vdb and /dev/vdc as data devices
+          Task 4: summitfs filesystem exists in summitpool
+          Task 5: /summitdir directory exists
+          Task 6: /dev/stratis/summitpool/summitfs mounted at /summitdir
+          Task 7: /etc/fstab has UUID entry for /summitdir (xfs, x-systemd.requires=stratisd.service)
+      when: >-
+        _task1_pkg_ok | bool and
+        _task2_svc_ok | bool and
+        _task3_pool_ok | bool and
+        _task4_fs_ok | bool and
+        _task5_dir_ok | bool and
+        _task6_mount_ok | bool and
+        _task7_fstab_ok | bool

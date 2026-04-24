@@ -1,0 +1,148 @@
+---
+- name: BPF Tracing (ebpf) — Advanced Solve
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    workshop_tmp_file: /tmp/workshop.tmp
+
+  tasks:
+
+    - name: Assert correct host via workshop-ebpf-checkhost.sh
+      ansible.builtin.shell: workshop-ebpf-checkhost.sh
+      register: r_checkhost
+      failed_when: r_checkhost.rc != 0
+      changed_when: false
+
+    # Use shell to allow $(uname -r) expansion — dnf module cannot do this
+    - name: Install bcc-tools, bpftrace, strace, and matching kernel-devel
+      ansible.builtin.shell: >
+        dnf install -y bcc-tools bpftrace strace kernel-devel-$(uname -r)
+      args:
+        executable: /bin/bash
+      register: r_dnf_install
+      changed_when: "'Nothing to do' not in r_dnf_install.stdout"
+      failed_when: r_dnf_install.rc != 0
+
+    # execsnoop scenario: run trigger only (foreground monitor not automatable)
+    # SKIP: /usr/share/bcc/tools/execsnoop — foreground blocking process
+    - name: Run execsnoop scenario trigger (workshop-ebpf-rootkit.sh)
+      ansible.builtin.shell: workshop-ebpf-rootkit.sh
+      register: r_rootkit
+      failed_when: r_rootkit.rc != 0
+      changed_when: false
+
+    # mountsnoop scenario: run triggers only
+    # SKIP: /usr/share/bcc/tools/mountsnoop — foreground blocking process
+    - name: Attempt to unmount root filesystem (always EBUSY — expected)
+      ansible.builtin.shell: workshop-ebpf-unmountroot.sh
+      register: r_unmountroot
+      failed_when: false
+      changed_when: false
+
+    - name: Verify /dev/shm is still mounted
+      ansible.builtin.shell: grep /dev/shm /proc/mounts
+      register: r_shm_mounted
+      failed_when: "'/dev/shm' not in r_shm_mounted.stdout"
+      changed_when: false
+
+    - name: Unmount /dev/shm (workshop-ebpf-unmountshm.sh)
+      ansible.builtin.shell: workshop-ebpf-unmountshm.sh
+      register: r_unmountshm
+      failed_when: r_unmountshm.rc != 0
+      changed_when: r_unmountshm.rc == 0
+
+    - name: Restore /dev/shm mount (workshop-ebpf-mountshm.sh)
+      ansible.builtin.shell: workshop-ebpf-mountshm.sh
+      register: r_mountshm
+      failed_when: r_mountshm.rc != 0
+      changed_when: r_mountshm.rc == 0
+
+    # cachestat scenario: run trigger only
+    # SKIP: /usr/share/bcc/tools/cachestat 5 — foreground blocking process
+    - name: Run cachestat scenario trigger (workshop-ebpf-cachestat.sh)
+      ansible.builtin.shell: workshop-ebpf-cachestat.sh
+      register: r_cachestat
+      failed_when: r_cachestat.rc != 0
+      changed_when: false
+
+    - name: Create /tmp/workshop.tmp for bpftrace exercises
+      ansible.builtin.file:
+        path: "{{ workshop_tmp_file }}"
+        state: touch
+        mode: "0644"
+
+    # strace writes summary to stderr, not stdout
+    - name: Run strace -c cat /tmp/workshop.tmp
+      ansible.builtin.shell: strace -c cat {{ workshop_tmp_file }}
+      register: r_strace
+      failed_when: r_strace.rc != 0
+      changed_when: false
+
+    - name: Assert strace output contains 'openat'
+      ansible.builtin.assert:
+        that:
+          - "'openat' in r_strace.stderr or 'openat' in r_strace.stdout"
+        fail_msg: "strace output did not contain 'openat'"
+        success_msg: "strace confirmed: openat syscall is present"
+
+    - name: Run bpftrace all-syscalls probe against cat /tmp/workshop.tmp
+      ansible.builtin.shell: >
+        bpftrace
+        -e 'tracepoint:syscalls:sys_enter_* { if (comm == "cat") { @[probe] = count(); } }'
+        -c "cat {{ workshop_tmp_file }}"
+      register: r_bpftrace_all
+      failed_when: r_bpftrace_all.rc != 0
+      changed_when: false
+
+    - name: Assert bpftrace all-syscalls output contains sys_enter_openat
+      ansible.builtin.assert:
+        that:
+          - "'sys_enter_openat' in r_bpftrace_all.stdout"
+        fail_msg: "bpftrace all-syscalls probe did not produce 'sys_enter_openat'"
+        success_msg: "bpftrace all-syscalls probe confirmed: sys_enter_openat present"
+
+    - name: Run bpftrace single-probe (sys_enter_openat) against cat /tmp/workshop.tmp
+      ansible.builtin.shell: >
+        bpftrace
+        -e 'tracepoint:syscalls:sys_enter_openat { if (comm == "cat") { @[probe] = count(); } }'
+        -c "cat {{ workshop_tmp_file }}"
+      register: r_bpftrace_single
+      failed_when: r_bpftrace_single.rc != 0
+      changed_when: false
+
+    - name: Assert bpftrace single-probe output contains sys_enter_openat
+      ansible.builtin.assert:
+        that:
+          - "'sys_enter_openat' in r_bpftrace_single.stdout"
+        fail_msg: "bpftrace single-probe did not produce 'sys_enter_openat'"
+        success_msg: "bpftrace single-probe confirmed: sys_enter_openat present"
+
+    # SKIP: bpftrace file probe (no -c flag) — blocks indefinitely on events
+
+    # ztrunner returns rc=2 which is expected — use ignore_errors
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      ignore_errors: true
+      changed_when: false
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost          : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          packages installed : {{ 'ok' if r_dnf_install.rc == 0 else 'NOT ok' }}
+          execsnoop trigger  : {{ 'ok' if r_rootkit.rc == 0 else 'NOT ok' }}
+          /dev/shm mounted   : {{ 'ok' if '/dev/shm' in r_shm_mounted.stdout else 'NOT ok' }}
+          unmount/remount shm: {{ 'ok' if r_mountshm.rc == 0 else 'NOT ok' }}
+          cachestat trigger  : {{ 'ok' if r_cachestat.rc == 0 else 'NOT ok' }}
+          strace openat      : {{ 'ok' if ('openat' in r_strace.stderr or 'openat' in r_strace.stdout) else 'NOT ok' }}
+          bpftrace-all       : {{ 'ok' if 'sys_enter_openat' in r_bpftrace_all.stdout else 'NOT ok' }}
+          bpftrace-single    : {{ 'ok' if 'sys_enter_openat' in r_bpftrace_single.stdout else 'NOT ok' }}
+          finish script      : {{ 'ok (rc=' + (r_finish.rc | string) + ')' }}
+          SKIPPED (not automatable — foreground blocking processes):
+            /usr/share/bcc/tools/execsnoop
+            /usr/share/bcc/tools/mountsnoop
+            /usr/share/bcc/tools/cachestat 5
+            bpftrace file probe (no -c flag)

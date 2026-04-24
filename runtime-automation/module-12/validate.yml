@@ -1,0 +1,75 @@
+---
+# Module 12 Validation — Containers pt.2 (buildah, skopeo)
+#
+# Post-solve durable state (after cleanup):
+#   Task 1: workshop-buildah-checkhost.sh exits 0  (environment sanity)
+#   Task 2: /root/ubi-tarball directory exists on node3
+#   Task 3: /root/ubi-tarball contains at least one file (skopeo copy ran)
+#
+# NOTE: containers and images are removed by the solve cleanup block.
+# Do NOT check for webserver2 image or running containers here.
+
+- name: Containers pt.2 (buildah, skopeo) — Validation
+  hosts: node3
+  gather_facts: false
+  become: true
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — workshop-buildah-checkhost.sh exits 0
+    # Verifies the student is on the correct host (node3) and
+    # the buildah/skopeo environment is intact.
+    # -------------------------------------------------------
+    - name: Run workshop-buildah-checkhost.sh
+      ansible.builtin.command: workshop-buildah-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — /root/ubi-tarball directory exists
+    # Created by the student before running skopeo copy.
+    # -------------------------------------------------------
+    - name: Stat /root/ubi-tarball directory
+      ansible.builtin.stat:
+        path: /root/ubi-tarball
+      register: r_tarball_dir
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — /root/ubi-tarball is non-empty
+    # Proves that skopeo copy completed and wrote at least one
+    # layer/manifest file into the dir: format destination.
+    # -------------------------------------------------------
+    - name: List files in /root/ubi-tarball
+      ansible.builtin.find:
+        paths: /root/ubi-tarball
+        file_type: file
+        recurse: false
+      register: r_tarball_files
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Build task result facts
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_checkhost.rc | default(1) == 0 }}"
+        _task2_ok: "{{ r_tarball_dir.stat.exists | default(false) and r_tarball_dir.stat.isdir | default(false) }}"
+        _task3_ok: "{{ (r_tarball_files.files | default([]) | length) > 0 }}"
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Validate all tasks
+      validation_check:
+        check: "{{ _task1_ok and _task2_ok and _task3_ok }}"
+        pass_msg: |
+          Task 1: workshop-buildah-checkhost.sh passed — correct host and environment
+          Task 2: /root/ubi-tarball directory exists
+          Task 3: /root/ubi-tarball is non-empty — skopeo copy completed successfully
+        error_msg: |
+          {{ 'Task 1 ok' if _task1_ok else 'Task 1 FAILED — workshop-buildah-checkhost.sh returned non-zero. Ensure you are working on node3 and the lab environment is intact, or click Solve.' }}
+          {{ 'Task 2 ok' if _task2_ok else 'Task 2 FAILED — /root/ubi-tarball directory does not exist. Run: mkdir /root/ubi-tarball, then complete the skopeo copy step, or click Solve.' }}
+          {{ 'Task 3 ok' if _task3_ok else 'Task 3 FAILED — /root/ubi-tarball is empty. Complete the skopeo copy step: skopeo copy docker://registry.access.redhat.com/ubi10/ubi-minimal:latest dir:/root/ubi-tarball, or click Solve.' }}

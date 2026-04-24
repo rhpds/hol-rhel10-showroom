@@ -1,0 +1,101 @@
+---
+- name: Session Logging (tlog) — Advanced Solve
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    target_user: other-user
+
+  tasks:
+
+    - name: Run workshop-tlog-checkhost.sh on node1
+      ansible.builtin.command:
+        cmd: workshop-tlog-checkhost.sh
+      register: r_checkhost
+      failed_when: r_checkhost.rc != 0
+      changed_when: false
+
+    # Verify authselect profile includes with-tlog (lab_setup should have done this)
+    - name: Check authselect with-tlog is active
+      ansible.builtin.command:
+        cmd: authselect current --raw
+      register: r_authselect
+      failed_when: "'with-tlog' not in r_authselect.stdout"
+      changed_when: false
+
+    # Generate tlog session as other-user via su - to ensure PAM/tlog captures it.
+    # Running as become_user would bypass PAM entirely — su - other-user is required.
+    # cat /etc/shadow will fail (Permission denied) — expected; failed_when: false absorbs it.
+    - name: Generate tlog session as other-user via su -
+      ansible.builtin.shell: |
+        su - other-user -c "ls -l /etc; cat /etc/passwd; cat /etc/shadow; sudo cat /etc/shadow"
+      register: r_session
+      failed_when: false
+      changed_when: false
+
+    - name: Query journalctl for tlog entries (other-user)
+      ansible.builtin.command:
+        cmd: >
+          journalctl --no-pager -o verbose
+          --output-fields=TLOG_USER,TLOG_REC
+          TLOG_USER=other-user
+      register: r_journal
+      failed_when: false
+      changed_when: false
+
+    - name: Assert journal contains TLOG_USER and TLOG_REC fields
+      ansible.builtin.assert:
+        that:
+          - "'TLOG_USER' in r_journal.stdout"
+          - "'TLOG_REC' in r_journal.stdout"
+        fail_msg: >-
+          Journal does not contain tlog entries for other-user.
+          Ensure the su - other-user session completed and PAM tlog rule is active.
+        success_msg: "Journal contains TLOG_USER and TLOG_REC entries for other-user."
+
+    # workshop-tlog-playback.sh requires a real TTY for tlog-play output.
+    # Wrap in 'script -q -c ... /dev/null' to allocate a pseudo-TTY without a file.
+    - name: Run workshop-tlog-playback.sh via script (TTY wrapper)
+      ansible.builtin.shell: |
+        script -q -c "workshop-tlog-playback.sh" /dev/null
+      register: r_playback
+      failed_when: false
+      changed_when: false
+
+    - name: Assert playback completed successfully
+      ansible.builtin.assert:
+        that:
+          - r_playback.rc == 0
+          - "'Playback Finished' in r_playback.stdout"
+        fail_msg: >-
+          workshop-tlog-playback.sh did not complete as expected.
+          rc={{ r_playback.rc }}, stdout={{ r_playback.stdout | default('') | truncate(300) }}
+        success_msg: "Playback Finished — tlog session replayed successfully."
+
+    - name: Report node1 solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost        : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok (rc=' + (r_checkhost.rc | string) + ')' }}
+          authselect tlog  : {{ 'ok (with-tlog active)' if 'with-tlog' in r_authselect.stdout else 'NOT ok' }}
+          session generated: {{ 'ok (su - other-user ran)' if r_session is defined else 'NOT ok' }}
+          journal tlog     : {{ 'ok' if ('TLOG_USER' in r_journal.stdout and 'TLOG_REC' in r_journal.stdout) else 'NOT ok — no tlog entries found' }}
+          tlog playback    : {{ 'ok (Playback Finished)' if (r_playback.rc == 0 and 'Playback Finished' in r_playback.stdout) else 'NOT ok (rc=' + (r_playback.rc | string) + ')' }}
+
+# workshop-finish-exercise.sh runs on BASTION — resets the student terminal session
+- name: Session Logging Solve — finish on bastion
+  hosts: bastion
+  gather_facts: false
+  become: false
+
+  tasks:
+
+    - name: Run workshop-finish-exercise.sh on bastion
+      ansible.builtin.shell:
+        SUDO_USER=ztrunner workshop-finish-exercise.sh
+      register: r_finish
+      ignore_errors: true
+      changed_when: false
+
+    - name: Report finish result
+      ansible.builtin.debug:
+        msg: "finish-exercise: {{ 'ok' if r_finish.rc == 0 else 'NOT ok (rc=' + (r_finish.rc | string) + ')' }}"

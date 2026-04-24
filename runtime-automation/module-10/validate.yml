@@ -1,0 +1,67 @@
+---
+- name: Storage Mgmt pt.2 (stratis) Validation
+  hosts: node2
+  gather_facts: false
+  become: true
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — /dev/vdd is a DATA device in summitpool
+    # -------------------------------------------------------
+    - name: Check /dev/vdd is DATA tier
+      ansible.builtin.shell: >
+        stratis blockdev list summitpool 2>/dev/null | grep vdd | grep -i data && echo ok || echo missing
+      register: r_vdd_data
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — /dev/vde is a CACHE block device in summitpool
+    # -------------------------------------------------------
+    - name: Check /dev/vde is CACHE tier
+      ansible.builtin.shell: >
+        stratis blockdev list summitpool 2>/dev/null | grep vde | grep -i cache && echo ok || echo missing
+      register: r_vde_cache
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — stratis blockdev list shows exactly 4 rows for summitpool
+    #           (3 DATA: vdb vdc vdd + 1 CACHE: vde)
+    # -------------------------------------------------------
+    - name: Count total block devices in summitpool
+      ansible.builtin.shell: >
+        stratis blockdev list summitpool 2>/dev/null | grep -c /dev/v
+      register: r_blockdev_count
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Build task results
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ 'ok' in (r_vdd_data.stdout | default('missing')) }}"
+        _task2_ok: "{{ 'ok' in (r_vde_cache.stdout | default('missing')) }}"
+        _task3_ok: "{{ (r_blockdev_count.stdout | default('0') | trim | int) == 4 }}"
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: /dev/vdd is a DATA device in summitpool' if _task1_ok else 'Task 1: /dev/vdd is NOT in the DATA tier — run: stratis pool add-data summitpool /dev/vdd' }}
+          {{ 'Task 2: /dev/vde is a CACHE device in summitpool' if _task2_ok else 'Task 2: /dev/vde is NOT in the CACHE tier — run: stratis pool init-cache summitpool /dev/vde' }}
+          {{ 'Task 3: summitpool has 4 block devices (3 DATA + 1 CACHE)' if _task3_ok else 'Task 3: Expected 4 block devices in summitpool, found ' + (r_blockdev_count.stdout | default('0') | trim) + ' — complete both add-data and init-cache steps' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: /dev/vdd is a DATA device in summitpool
+          Task 2: /dev/vde is a CACHE device in summitpool
+          Task 3: summitpool has 4 block devices (3 DATA + 1 CACHE)
+      when: _task1_ok and _task2_ok and _task3_ok

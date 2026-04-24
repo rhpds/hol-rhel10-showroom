@@ -1,0 +1,118 @@
+---
+- name: Service Management pt.1 (systemd) Validation
+  hosts: rhel10_nodes
+  gather_facts: false
+  become: true
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — httpd package is installed
+    # -------------------------------------------------------
+    - name: Check httpd package installed
+      ansible.builtin.command:
+        cmd: rpm -q httpd
+      register: r_httpd_pkg
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 2 — mariadb-server package is installed
+    # -------------------------------------------------------
+    - name: Check mariadb-server package installed
+      ansible.builtin.command:
+        cmd: rpm -q mariadb-server
+      register: r_mariadb_pkg
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 3 — httpd.service is enabled and active (running)
+    # -------------------------------------------------------
+    - name: Check httpd service enabled
+      ansible.builtin.command:
+        cmd: systemctl is-enabled httpd
+      register: r_httpd_enabled
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check httpd service active
+      ansible.builtin.command:
+        cmd: systemctl is-active httpd
+      register: r_httpd_active
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 4 — mariadb.service is enabled and active (running)
+    # -------------------------------------------------------
+    - name: Check mariadb service enabled
+      ansible.builtin.command:
+        cmd: systemctl is-enabled mariadb
+      register: r_mariadb_enabled
+      changed_when: false
+      ignore_errors: true
+
+    - name: Check mariadb service active
+      ansible.builtin.command:
+        cmd: systemctl is-active mariadb
+      register: r_mariadb_active
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Check 5 — HTTP port 80 reachable on node1
+    # -------------------------------------------------------
+    - name: Check HTTP port 80 reachable (curl localhost)
+      ansible.builtin.command:
+        cmd: >
+          curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://localhost
+      register: r_http_port
+      changed_when: false
+      ignore_errors: true
+
+    # -------------------------------------------------------
+    # Build task results
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_httpd_pkg.rc | default(1) == 0 }}"
+        _task2_ok: "{{ r_mariadb_pkg.rc | default(1) == 0 }}"
+        _task3_ok: >-
+          {{
+            (r_httpd_enabled.stdout | default('') | trim) == 'enabled' and
+            (r_httpd_active.stdout | default('') | trim) == 'active'
+          }}
+        _task4_ok: >-
+          {{
+            (r_mariadb_enabled.stdout | default('') | trim) == 'enabled' and
+            (r_mariadb_active.stdout | default('') | trim) == 'active'
+          }}
+        _task5_ok: >-
+          {{
+            (r_http_port.stdout | default('') | trim) in ['200', '301', '302', '403']
+          }}
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: httpd package is installed' if _task1_ok else 'Task 1: httpd is NOT installed — run: sudo dnf install -y httpd' }}
+          {{ 'Task 2: mariadb-server package is installed' if _task2_ok else 'Task 2: mariadb-server is NOT installed — run: sudo dnf install -y mariadb-server' }}
+          {{ 'Task 3: httpd.service is enabled and running' if _task3_ok else 'Task 3: httpd.service is NOT enabled/running (enabled=' + (r_httpd_enabled.stdout | default('?') | trim) + ' active=' + (r_httpd_active.stdout | default('?') | trim) + ') — run: sudo systemctl enable --now httpd' }}
+          {{ 'Task 4: mariadb.service is enabled and running' if _task4_ok else 'Task 4: mariadb.service is NOT enabled/running (enabled=' + (r_mariadb_enabled.stdout | default('?') | trim) + ' active=' + (r_mariadb_active.stdout | default('?') | trim) + ') — run: sudo systemctl enable --now mariadb' }}
+          {{ 'Task 5: HTTP port 80 is reachable on node1' if _task5_ok else 'Task 5: Port 80 is NOT reachable (http_code=' + (r_http_port.stdout | default('none') | trim) + ') — ensure httpd is running and firewall allows http: sudo firewall-cmd --add-service=http' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: httpd package is installed
+          Task 2: mariadb-server package is installed
+          Task 3: httpd.service is enabled and running
+          Task 4: mariadb.service is enabled and running
+          Task 5: HTTP port 80 is reachable on node1
+      when: _task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok

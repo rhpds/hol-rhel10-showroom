@@ -1,0 +1,128 @@
+---
+- name: Net Filter (nftables) — Advanced Solve
+  hosts: node2
+  gather_facts: false
+  become: true
+
+  tasks:
+
+    - name: Run workshop-nftables-checkhost.sh
+      ansible.builtin.shell: workshop-nftables-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      failed_when: r_checkhost.rc != 0
+
+    # Phase 1 — Setup: disable firewalld, enable nftables
+    - name: Disable, stop, and mask firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: stopped
+        enabled: false
+        masked: true
+      ignore_errors: true
+
+    - name: Unmask, enable, and start nftables
+      ansible.builtin.systemd:
+        name: nftables
+        state: started
+        enabled: true
+        masked: false
+      ignore_errors: true
+
+    # Phase 2 — Table + Chain (idempotent guards)
+    - name: Create inet workshop table (idempotent)
+      ansible.builtin.shell: >
+        nft list tables | grep -q 'inet workshop' || nft add table inet workshop
+      register: r_table
+      changed_when: "'already' not in r_table.stdout"
+      ignore_errors: true
+
+    # nft chain creation uses { ; } — single-quoted to prevent bash/Jinja2 expansion
+    - name: Create INPUT chain in inet workshop table
+      ansible.builtin.shell: >
+        nft list chains | grep -q 'chain INPUT' || nft 'add chain inet workshop INPUT { type filter hook input priority 0 ; }'
+      register: r_chain
+      changed_when: true
+      ignore_errors: true
+
+    # Phase 3 — Rules Exercise
+    - name: Insert single rule counting TCP dport http traffic
+      ansible.builtin.shell: nft insert rule inet workshop INPUT tcp dport http counter
+      register: r_rule_single
+      changed_when: true
+      ignore_errors: true
+
+    # curl to generate a counted packet — connection refused is expected
+    - name: Curl 127.0.0.1 to increment counter (connection refused expected)
+      ansible.builtin.shell: curl 127.0.0.1
+      register: r_curl
+      failed_when: false
+      changed_when: false
+
+    # Delete single rule using handle from workshop helper script
+    - name: Delete single http counter rule by handle
+      ansible.builtin.shell: >
+        nft delete rule inet workshop INPUT handle $(workshop-nftables-gethandle.sh)
+      register: r_delete_rule
+      changed_when: true
+      ignore_errors: true
+
+    # Multi-port rule — nft set syntax { ... } in single quotes to avoid bash/Jinja2 issues
+    - name: Insert multi-port rule (ssh, http, https, 8181)
+      ansible.builtin.shell: >
+        nft insert rule inet workshop INPUT 'tcp dport { ssh, http, https, 8181 } counter'
+      register: r_rule_multi
+      changed_when: true
+      ignore_errors: true
+
+    # Phase 4 — Cleanup
+    - name: Flush inet workshop table (idempotent guard)
+      ansible.builtin.shell: >
+        nft list tables | grep -q 'inet workshop' && nft flush table inet workshop || true
+      register: r_flush
+      changed_when: true
+      ignore_errors: true
+
+    - name: Delete inet workshop table (idempotent guard)
+      ansible.builtin.shell: >
+        nft list tables | grep -q 'inet workshop' && nft delete table inet workshop || true
+      register: r_delete_table
+      changed_when: true
+      ignore_errors: true
+
+    - name: Disable, stop, and mask nftables
+      ansible.builtin.systemd:
+        name: nftables
+        state: stopped
+        enabled: false
+        masked: true
+      ignore_errors: true
+
+    - name: Unmask, enable, and start firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: started
+        enabled: true
+        masked: false
+      ignore_errors: true
+
+    # workshop-finish-exercise.sh may fail with pkill on ztrunner — ignore_errors
+    - name: Run workshop-finish-exercise.sh
+      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
+      become: false
+      register: r_finish
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost          : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          table created      : {{ 'ok' if r_table is not failed else 'NOT ok' }}
+          chain created      : {{ 'ok' if r_chain is not failed else 'NOT ok' }}
+          single rule added  : {{ 'ok' if r_rule_single is not failed else 'NOT ok' }}
+          single rule deleted: {{ 'ok' if r_delete_rule is not failed else 'NOT ok' }}
+          multi-port rule    : {{ 'ok' if r_rule_multi is not failed else 'NOT ok' }}
+          table cleaned up   : {{ 'ok' if r_delete_table is not failed else 'NOT ok' }}
+          firewalld restored : {{ 'ok' if r_flush is not failed else 'NOT ok' }}
+          finish script      : {{ 'ok' if r_finish.rc == 0 else 'NOT ok (ignored)' }}
