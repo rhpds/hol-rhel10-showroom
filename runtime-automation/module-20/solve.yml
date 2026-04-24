@@ -86,7 +86,7 @@
 
 # workshop-finish-exercise.sh runs on BASTION — resets the student terminal session
 - name: Session Logging Solve — finish on bastion
-  hosts: bastion
+  hosts: bastions
   gather_facts: false
   become: false
   vars:

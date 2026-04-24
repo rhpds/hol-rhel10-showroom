@@ -15,6 +15,8 @@ module.exports.register = function () {
     const css  = fs.readFileSync(path.join(base, 'css', 'site-extra.css'), 'utf8')
     const js   = fs.readFileSync(path.join(base, 'js', 'buttons.js'), 'utf8')
 
+    // Directly set white-space on listingblock pre elements at runtime.
+    // This overrides hljs and any theme CSS regardless of load order.
     const wrapScript = `
 (function(){
   function applyWrap(){

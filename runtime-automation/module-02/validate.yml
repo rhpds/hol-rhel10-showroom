@@ -1,6 +1,6 @@
 ---
 - name: Service Management pt.1 (systemd) Validation
-  hosts: bastion
+  hosts: rhel10_nodes
   gather_facts: false
   become: true
   vars:

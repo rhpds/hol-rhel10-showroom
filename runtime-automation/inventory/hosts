@@ -1,10 +1,20 @@
 [rhel10_nodes]
-node1 ansible_host=10.129.18.242 ansible_user=lab-user ansible_ssh_private_key_file=/app/.ssh/id_rsa ansible_ssh_common_args="-o StrictHostKeyChecking=no"
-node2 ansible_host=10.130.8.252 ansible_user=lab-user ansible_ssh_private_key_file=/app/.ssh/id_rsa ansible_ssh_common_args="-o StrictHostKeyChecking=no"
-node3 ansible_host=10.130.8.254 ansible_user=lab-user ansible_ssh_private_key_file=/app/.ssh/id_rsa ansible_ssh_common_args="-o StrictHostKeyChecking=no"
+node1
+node2
+node3
 
 [leapp_nodes]
-leapp ansible_host=10.130.8.255 ansible_user=lab-user ansible_ssh_private_key_file=/app/.ssh/id_rsa ansible_ssh_common_args="-o StrictHostKeyChecking=no"
+leapp
 
-[bastion]
-bastion ansible_host=ssh.ocpvdev01.rhdp.net ansible_port=32547 ansible_user=lab-user ansible_ssh_private_key_file=/app/.ssh/id_rsa ansible_ssh_common_args="-o StrictHostKeyChecking=no"
+[bastions]
+bastion
+
+[bastions:vars]
+ansible_host="{{ lookup('env', 'BASTION_SSH_HOSTNAME') | default('ssh.ocpvdev01.rhdp.net') }}"
+ansible_port="{{ lookup('env', 'BASTION_SSH_PORT') | default(32461) | int }}"
+
+[all:vars]
+ansible_user="{{ lookup('env', 'USER') | default('lab-user') }}"
+ansible_ssh_private_key_file=/app/.ssh/id_rsa
+ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+

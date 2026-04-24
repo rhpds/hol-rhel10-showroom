@@ -6,7 +6,7 @@
 # workshop-finish-exercise.sh runs on BASTION at the end
 
 - name: Boom Solve — initial reboot of node3 from bastion
-  hosts: bastion
+  hosts: bastions
   gather_facts: false
   vars:
     ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
@@ -190,7 +190,7 @@
         success_msg: "custom_value=true confirmed in /proc/cmdline — custom boot entry active"
 
 - name: Boom Solve — finish exercise on bastion
-  hosts: bastion
+  hosts: bastions
   gather_facts: false
   vars:
     ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"

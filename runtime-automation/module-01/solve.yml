@@ -1,6 +1,6 @@
 ---
 - name: Package Management (dnf) — Fundamental Solve
-  hosts: bastion
+  hosts: rhel10_nodes
   gather_facts: false
   become: true
   vars:

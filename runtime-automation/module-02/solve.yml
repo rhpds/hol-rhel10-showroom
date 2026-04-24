@@ -1,6 +1,6 @@
 ---
 - name: Service Management (systemd) — Fundamental Solve
-  hosts: bastion
+  hosts: rhel10_nodes
   gather_facts: false
   become: true
   vars:
@@ -25,6 +25,14 @@
           - php
         state: present
       register: r_install
+      ignore_errors: true
+
+    - name: Fix httpd ServerRoot typo in httpd.conf (node2 lab breakage)
+      ansible.builtin.replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '^ServerRoot "/etc/httpdd"'
+        replace: 'ServerRoot "/etc/httpd"'
+      register: r_serverroot_fix
       ignore_errors: true
 
     - name: Enable and start httpd
@@ -65,6 +73,7 @@
         msg: |
           checkhost script  : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok (rc=' + (r_checkhost.rc | string) + ')' }}
           packages installed: {{ 'ok' if r_install is not failed else 'NOT ok' }}
+          httpd.conf fixed  : {{ 'fixed' if r_serverroot_fix.changed else 'no change needed' }}
           httpd started     : {{ 'ok' if r_httpd is not failed else 'NOT ok' }}
           mariadb started   : {{ 'ok' if r_mariadb is not failed else 'NOT ok' }}
           firewall http open: {{ 'ok' if r_firewall is not failed else 'NOT ok' }}
