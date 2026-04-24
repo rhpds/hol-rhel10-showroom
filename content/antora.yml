@@ -7,3 +7,8 @@ nav:
 asciidoc:
   attributes:
     lab_name: LB1237 - The Definitive Red Hat Enterprise Linux 10 Hands-On Lab
+    release-version: master
+    page-pagination: true
+    page-links:
+    - url: https://redhat.com
+      text: Red Hat
