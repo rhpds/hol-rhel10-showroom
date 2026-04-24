@@ -1,9 +1,12 @@
 ---
 - name: Package Management pt.2 (dnf) — Intermediate Solve
-  hosts: rhel10_nodes
+  hosts: bastion
   gather_facts: false
   become: true
   vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
     epel_rpm_url: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm"
 
   tasks:
