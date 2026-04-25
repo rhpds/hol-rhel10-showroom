@@ -1,3 +1,5 @@
+localhost ansible_connection=local ansible_host=127.0.0.1
+
 [rhel10_nodes]
 node1
 node2
@@ -10,11 +12,10 @@ leapp
 bastion
 
 [bastions:vars]
-ansible_host="{{ lookup('env', 'BASTION_SSH_HOSTNAME') | default('ssh.ocpvdev01.rhdp.net') }}"
-ansible_port="{{ lookup('env', 'BASTION_SSH_PORT') | default(32461) | int }}"
+ansible_host="{{ lookup('env', 'SSH_HOSTNAME') | default('ssh.ocpvdev01.rhdp.net') }}"
+ansible_port="{{ lookup('env', 'SSH_PORT') | int }}"
 
 [all:vars]
-ansible_user="{{ lookup('env', 'USER') | default('lab-user') }}"
+ansible_user="{{ lookup('env', 'USER') }}"
 ansible_ssh_private_key_file=/app/.ssh/id_rsa
 ansible_ssh_common_args="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
