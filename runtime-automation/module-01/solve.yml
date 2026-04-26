@@ -1,6 +1,6 @@
 ---
 - name: Package Management (dnf) — Fundamental Solve
-  hosts: rhel10_nodes
+  hosts: node1
   gather_facts: false
   become: true
   vars:

@@ -1,6 +1,6 @@
 ---
 - name: Service Management pt.1 (systemd) Validation
-  hosts: rhel10_nodes
+  hosts: node1
   gather_facts: false
   become: true
   vars:

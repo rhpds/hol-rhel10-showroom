@@ -1,6 +1,6 @@
 ---
 - name: Package Management pt.1 (dnf) — Validation
-  hosts: rhel10_nodes
+  hosts: node1
   gather_facts: false
   become: true
   vars:
