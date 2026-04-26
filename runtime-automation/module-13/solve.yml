@@ -51,8 +51,8 @@
       args:
         executable: /bin/bash
       register: r_podman_build
-      async: 300
-      poll: 10
+      async: 600
+      poll: 15
       changed_when: "'Successfully tagged' in r_podman_build.stdout"
       ignore_errors: false
 
