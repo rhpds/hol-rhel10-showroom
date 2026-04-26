@@ -111,13 +111,17 @@
         msg: "Compose UUID: {{ image_uuid.stdout | trim }}"
 
     # chdir is required — the lab does not use an absolute path in the command
+    # failed_when ignores rc=1 when the file already exists (idempotent re-run)
     - name: Retrieve qcow2 image from composer
       ansible.builtin.shell: >
         composer-cli compose image {{ image_uuid.stdout | trim }}
       args:
         chdir: "{{ libvirt_images_dir }}"
       register: r_retrieve
-      changed_when: true
+      changed_when: r_retrieve.rc == 0
+      failed_when: >-
+        r_retrieve.rc != 0 and
+        'exists, skipping download' not in (r_retrieve.stderr | default(''))
 
     - name: Rename image to vmguest.qcow2 (prerequisite for module-15)
       ansible.builtin.shell: >
