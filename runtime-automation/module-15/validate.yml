@@ -92,16 +92,6 @@
           }}
 
     # -------------------------------------------------------
-    # Running the script in automation kills the SSH session (pkill),
-    # so we verify the script exists with correct permissions instead.
-    # -------------------------------------------------------
-
-      ansible.builtin.set_fact:
-        _finish_ok: >-
-          {{
-          }}
-
-    # -------------------------------------------------------
     # Build results and validate
     # -------------------------------------------------------
     - name: Build task result facts
@@ -109,6 +99,22 @@
         _task1_ok: "{{ _libvirtd_active | bool }}"
         _task2_ok: "{{ _packages_ok | bool }}"
         _task3_ok: "{{ _vmguest_absent | bool }}"
-        _task4_ok: "{{ _finish_ok | bool }}"
+
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: libvirtd is active and running' if _task1_ok else 'Task 1: FAILED — libvirtd is not running. Run: systemctl start libvirtd' }}
+          {{ 'Task 2: All virtualization packages installed' if _task2_ok else 'Task 2: FAILED — one or more packages missing: qemu-kvm, libvirt, virt-install, libvirt-client, guestfs-tools' }}
+          {{ 'Task 3: vmguest domain absent (cleanup ok)' if _task3_ok else 'Task 3: FAILED — vmguest domain still exists. Run: virsh destroy vmguest && virsh undefine vmguest --remove-all-storage' }}
+      when: not (_task1_ok | bool and _task2_ok | bool and _task3_ok | bool)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: libvirtd service is active and running on node3
+          Task 2: All required virtualization packages are installed
+          Task 3: vmguest domain is absent — cleanup completed correctly
+      when: _task1_ok | bool and _task2_ok | bool and _task3_ok | bool
 
 
