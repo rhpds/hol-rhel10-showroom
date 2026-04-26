@@ -44,17 +44,34 @@
         fail_msg: "Pre-staged file {{ sample_toml }} not found — check hol_rhel10_automation collection setup"
 
     # Build image with idempotency guard (skip if already exists)
-    - name: Build localhost/custom-bootc image (skip if already present)
-      ansible.builtin.shell: |
-        podman images --quiet localhost/custom-bootc | grep -q . || \
-          podman build --file {{ ocifile }} --tag localhost/custom-bootc
-      args:
-        executable: /bin/bash
-      register: r_podman_build
-      async: 600
-      poll: 15
-      changed_when: "'Successfully tagged' in r_podman_build.stdout"
-      ignore_errors: false
+    # block/rescue retries once on first failure (transient registry/network issue)
+    - block:
+        - name: Build localhost/custom-bootc image (skip if already present)
+          ansible.builtin.shell: |
+            podman images --quiet localhost/custom-bootc | grep -q . || \
+              podman build --file {{ ocifile }} --tag localhost/custom-bootc
+          args:
+            executable: /bin/bash
+          register: r_podman_build
+          async: 600
+          poll: 15
+          changed_when: "'Successfully tagged' in r_podman_build.stdout"
+
+      rescue:
+        - name: Pause 30s before retrying build
+          ansible.builtin.pause:
+            seconds: 30
+
+        - name: Retry — build localhost/custom-bootc image
+          ansible.builtin.shell: |
+            podman images --quiet localhost/custom-bootc | grep -q . || \
+              podman build --file {{ ocifile }} --tag localhost/custom-bootc
+          args:
+            executable: /bin/bash
+          register: r_podman_build
+          async: 600
+          poll: 15
+          changed_when: "'Successfully tagged' in r_podman_build.stdout"
 
     - name: Ensure /root/.ssh directory exists
       ansible.builtin.file:
