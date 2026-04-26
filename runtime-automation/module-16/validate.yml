@@ -18,7 +18,7 @@
         cmd: grep ^ServerRoot /etc/httpd/conf/httpd.conf
       register: r_serverroot
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — httpd service is active (running)
@@ -28,7 +28,7 @@
         cmd: systemctl is-active httpd
       register: r_httpd
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — /root/webdevs.txt exists with correct content
@@ -38,7 +38,7 @@
         cmd: cat /root/webdevs.txt
       register: r_webdevs
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 4 — Users bob, susan, francis exist on node2
@@ -48,21 +48,21 @@
         cmd: getent passwd bob
       register: r_bob
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check user susan exists
       ansible.builtin.command:
         cmd: getent passwd susan
       register: r_susan
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check user francis exists
       ansible.builtin.command:
         cmd: getent passwd francis
       register: r_francis
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 5 — bob, susan, francis are members of apache group
@@ -72,21 +72,21 @@
         cmd: id bob
       register: r_bob_grp
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check susan is in apache group
       ansible.builtin.command:
         cmd: id susan
       register: r_susan_grp
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check francis is in apache group
       ansible.builtin.command:
         cmd: id francis
       register: r_francis_grp
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Build results

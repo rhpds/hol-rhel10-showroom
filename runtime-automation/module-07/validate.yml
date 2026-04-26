@@ -19,7 +19,7 @@
         cmd: workshop-lightspeed-checkhost.sh
       register: r_checkhost
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — 'c' binary is present and executable
@@ -29,7 +29,7 @@
         cmd: which c
       register: r_which_c
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — CLA responds to a single query without error
@@ -40,7 +40,7 @@
         cmd: c "what is red hat enterprise linux"
       register: r_cla_query
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Run without become so SUDO_USER env var is controlled.

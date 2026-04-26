@@ -28,7 +28,7 @@
       ansible.builtin.command: workshop-buildah-checkhost.sh
       register: r_checkhost
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — /root/ubi-tarball directory exists
@@ -38,7 +38,7 @@
       ansible.builtin.stat:
         path: /root/ubi-tarball
       register: r_tarball_dir
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — /root/ubi-tarball is non-empty
@@ -51,7 +51,7 @@
         file_type: file
         recurse: false
       register: r_tarball_files
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Build task result facts

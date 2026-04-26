@@ -16,7 +16,7 @@
       ansible.builtin.command: rpm -q vdo
       register: r_vdo_pkg
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — lv_raid10 LV exists in vg_lab
@@ -29,7 +29,7 @@
         | awk '$1=="lv_raid10" && $2~/raid10|vdo-pool/{print "found"}'
       register: r_lv_raid10
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — lab2 VDO virtual LV exists in vg_lab
@@ -40,7 +40,7 @@
         | awk '$1=="lab2" && $2~/vdo/{print "found"}'
       register: r_lv_lab2
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 4 — /dev/mapper/vg_lab-lab2 mounted at /mnt/lab2
@@ -50,7 +50,7 @@
         grep -q 'vg_lab-lab2.*\s/mnt/lab2\s' /proc/mounts && echo mounted || echo not_mounted
       register: r_mount
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 5 — /mnt/lab2 has >= 3G of data (dedup scenario)
@@ -60,7 +60,7 @@
         du -s /mnt/lab2 2>/dev/null | awk '{print $1}'
       register: r_du
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 6 — VDO space saving >= 90%
@@ -72,7 +72,7 @@
         | awk '/vg_lab-lv_raid10/{print $NF}'
       register: r_vdostats
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # rc=2 from pkill (ztrunner user absent) is acceptable

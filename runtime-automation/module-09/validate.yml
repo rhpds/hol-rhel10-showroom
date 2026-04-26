@@ -19,7 +19,7 @@
       ansible.builtin.slurp:
         src: "{{ httpd_dropin_file }}"
       register: r_httpd_dropin
-      ignore_errors: true
+      failed_when: false
 
     - name: Decode httpd drop-in content
       ansible.builtin.set_fact:
@@ -44,7 +44,7 @@
       ansible.builtin.slurp:
         src: "{{ mariadb_dropin_file }}"
       register: r_mariadb_dropin
-      ignore_errors: true
+      failed_when: false
 
     - name: Decode mariadb drop-in content
       ansible.builtin.set_fact:

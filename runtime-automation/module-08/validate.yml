@@ -16,7 +16,7 @@
       ansible.builtin.command: rpm -q net-tools
       register: r_net_tools
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — dnf alias 'ls' exists (ls=list)
@@ -26,7 +26,7 @@
         dnf alias list 2>/dev/null | grep -i "Alias ls=" && echo ok || echo missing
       register: r_alias_ls
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — dnf alias 'li' exists (repoquery --installed)
@@ -36,7 +36,7 @@
         dnf alias list 2>/dev/null | grep -i "Alias li=" && echo ok || echo missing
       register: r_alias_li
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 4 — dnf alias 'la' has been deleted (must NOT exist)
@@ -46,7 +46,7 @@
         dnf alias list 2>/dev/null | grep -i "Alias la=" && echo found || echo absent
       register: r_alias_la
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 5 — epel-release package is installed
@@ -55,7 +55,7 @@
       ansible.builtin.command: rpm -q epel-release
       register: r_epel_pkg
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 6 — EPEL repo is permanently disabled
@@ -67,14 +67,14 @@
         grep -q 'enabled=0' /etc/yum.repos.d/epel.repo 2>/dev/null && echo disabled || echo enabled
       register: r_epel_conf
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check EPEL absent from active repolist (secondary check)
       ansible.builtin.shell: >
         dnf repolist 2>/dev/null | grep -qi '^epel' && echo found || echo absent
       register: r_epel_repolist
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Build task results

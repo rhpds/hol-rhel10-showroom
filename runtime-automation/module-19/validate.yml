@@ -18,7 +18,7 @@
       ansible.builtin.command: workshop-podman-checkhost.sh
       register: r_checkhost
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — OCIFile pre-staged at /root/custom_image.OCIFile
@@ -27,7 +27,7 @@
       ansible.builtin.stat:
         path: /root/custom_image.OCIFile
       register: r_ocifile
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — All containers removed (podman ps -a empty)
@@ -36,7 +36,7 @@
       ansible.builtin.command: podman ps -a --format json
       register: r_containers
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 4 — All images removed (podman images empty)
@@ -45,7 +45,7 @@
       ansible.builtin.command: podman images --format json
       register: r_images
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # -------------------------------------------------------

@@ -22,7 +22,7 @@
         cmd: authselect current --raw
       register: r_authselect
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — journalctl contains TLOG_USER and TLOG_REC for other-user
@@ -35,7 +35,7 @@
           TLOG_USER=other-user
       register: r_journal
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — workshop-tlog-playback.sh exits 0 and prints "Playback Finished"
@@ -46,7 +46,7 @@
         script -q -c "workshop-tlog-playback.sh" /dev/null
       register: r_playback
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Build result booleans

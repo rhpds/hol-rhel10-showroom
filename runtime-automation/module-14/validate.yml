@@ -21,25 +21,25 @@
       ansible.builtin.command: rpm -q osbuild-composer
       register: r_pkg_composer
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check weldr-client (composer-cli) is installed
       ansible.builtin.command: rpm -q weldr-client
       register: r_pkg_cli
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check cockpit-image-builder is installed
       ansible.builtin.command: rpm -q cockpit-image-builder
       register: r_pkg_cockpit
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check guestfs-tools is installed
       ansible.builtin.command: rpm -q guestfs-tools
       register: r_pkg_guestfs
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — Blueprint 'sample-webserver' exists in list
@@ -48,7 +48,7 @@
       ansible.builtin.command: composer-cli blueprints list
       register: r_blueprints
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — Blueprint depsolve exits rc == 0
@@ -57,7 +57,7 @@
       ansible.builtin.command: composer-cli blueprints depsolve {{ blueprint_name }}
       register: r_depsolve
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 4 — A FINISHED compose for sample-webserver exists
@@ -67,7 +67,7 @@
       ansible.builtin.command: composer-cli compose list
       register: r_compose_list
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 5 — vmguest.qcow2 exists in /var/lib/libvirt/images
@@ -76,7 +76,7 @@
       ansible.builtin.stat:
         path: "{{ libvirt_images_dir }}/vmguest.qcow2"
       register: r_qcow2
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Build result booleans

@@ -17,7 +17,7 @@
         cmd: rpm -q bash-completion
       register: r_bash_completion
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — httpd is installed
@@ -27,7 +27,7 @@
         cmd: rpm -q httpd
       register: r_httpd
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — mariadb is installed
@@ -37,7 +37,7 @@
         cmd: rpm -q mariadb
       register: r_mariadb
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 4 — mariadb-server is installed
@@ -47,7 +47,7 @@
         cmd: rpm -q mariadb-server
       register: r_mariadb_server
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 5 — php is removed (must NOT be installed)
@@ -57,7 +57,7 @@
         cmd: rpm -q php
       register: r_php
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # In a student interactive session the script kills active student

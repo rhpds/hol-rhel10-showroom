@@ -22,7 +22,7 @@
       ansible.builtin.stat:
         path: "{{ ocifile }}"
       register: r_ocifile
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — localhost/custom-bootc image exists in podman
@@ -34,7 +34,7 @@
         executable: /bin/bash
       register: r_bootc_image
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — /root/custom-bootc.toml exists and has no literal SSHKEY token
@@ -43,7 +43,7 @@
       ansible.builtin.stat:
         path: "{{ custom_toml }}"
       register: r_toml_stat
-      ignore_errors: true
+      failed_when: false
 
     - name: Check custom-bootc.toml does not contain literal SSHKEY token
       ansible.builtin.shell: |
@@ -53,7 +53,7 @@
       register: r_toml_content
       changed_when: false
       when: r_toml_stat.stat.exists | default(false)
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 4 — /root/qcow2/disk.qcow2 exists (bootc-image-builder output)
@@ -62,7 +62,7 @@
       ansible.builtin.stat:
         path: "{{ qcow2_src }}"
       register: r_qcow2_src
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 5 — /var/lib/libvirt/images/bootc-vm.qcow2 exists (copied for libvirt)
@@ -71,7 +71,7 @@
       ansible.builtin.stat:
         path: "{{ qcow2_dest }}"
       register: r_qcow2_dest
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 6 — bootc-vm domain is running (virsh list)
@@ -83,7 +83,7 @@
         executable: /bin/bash
       register: r_vm_running
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 7 — Get VM IP and verify HTTP returns '* SUCCESS: hello bootc *'
@@ -96,7 +96,7 @@
       register: r_vm_ip
       changed_when: false
       when: r_vm_running.rc | default(1) == 0
-      ignore_errors: true
+      failed_when: false
 
     - name: HTTP GET to bootc-vm and check for SUCCESS body
       ansible.builtin.uri:
@@ -110,7 +110,7 @@
       when:
         - r_vm_running.rc | default(1) == 0
         - r_vm_ip.stdout | default('') | trim | length > 5
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Build result facts

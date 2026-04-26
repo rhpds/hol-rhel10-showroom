@@ -18,7 +18,7 @@
       ansible.builtin.command: systemctl is-active firewalld
       register: r_firewalld_active
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — runtime services in public zone
@@ -27,7 +27,7 @@
       ansible.builtin.command: firewall-cmd --list-services --zone={{ firewalld_zone }}
       register: r_runtime_services
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — permanent services in public zone
@@ -36,7 +36,7 @@
       ansible.builtin.command: firewall-cmd --list-services --zone={{ firewalld_zone }} --permanent
       register: r_permanent_services
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Build individual task results

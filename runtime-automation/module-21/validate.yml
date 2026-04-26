@@ -19,7 +19,7 @@
         cmd: rpm -q bcc-tools
       register: r_bcc_tools
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — bpftrace package installed
@@ -29,7 +29,7 @@
         cmd: rpm -q bpftrace
       register: r_bpftrace_pkg
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — strace package installed
@@ -39,7 +39,7 @@
         cmd: rpm -q strace
       register: r_strace_pkg
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 4 — kernel-devel for running kernel installed
@@ -49,14 +49,14 @@
         cmd: uname -r
       register: r_uname
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Check kernel-devel matching running kernel is installed
       ansible.builtin.command:
         cmd: "rpm -q kernel-devel-{{ r_uname.stdout | trim }}"
       register: r_kernel_devel
       changed_when: false
-      ignore_errors: true
+      failed_when: false
       when: r_uname.rc | default(1) == 0
 
     # -------------------------------------------------------
@@ -66,7 +66,7 @@
       ansible.builtin.stat:
         path: /usr/share/bcc/tools/execsnoop
       register: r_execsnoop
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 6 — /dev/shm mounted as tmpfs
@@ -76,7 +76,7 @@
         cmd: grep -E '^tmpfs /dev/shm' /proc/mounts
       register: r_shm
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 7 — /tmp/workshop.tmp exists
@@ -85,7 +85,7 @@
       ansible.builtin.stat:
         path: "{{ workshop_tmp_file }}"
       register: r_workshop_tmp
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 8 — strace -c cat /tmp/workshop.tmp contains 'openat'
@@ -97,7 +97,6 @@
       register: r_strace
       changed_when: false
       failed_when: false
-      ignore_errors: true
       when: r_workshop_tmp.stat is defined and r_workshop_tmp.stat.exists
 
     # -------------------------------------------------------
@@ -112,7 +111,6 @@
       register: r_bpftrace_all
       changed_when: false
       failed_when: false
-      ignore_errors: true
       when: r_workshop_tmp.stat is defined and r_workshop_tmp.stat.exists
 
     # -------------------------------------------------------

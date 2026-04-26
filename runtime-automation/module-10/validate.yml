@@ -17,7 +17,7 @@
         stratis blockdev list summitpool 2>/dev/null | grep vdd | grep -i data && echo ok || echo missing
       register: r_vdd_data
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 2 — /dev/vde is a CACHE block device in summitpool
@@ -27,7 +27,7 @@
         stratis blockdev list summitpool 2>/dev/null | grep vde | grep -i cache && echo ok || echo missing
       register: r_vde_cache
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Check 3 — stratis blockdev list shows exactly 4 rows for summitpool
@@ -38,7 +38,7 @@
         stratis blockdev list summitpool 2>/dev/null | grep -c /dev/v
       register: r_blockdev_count
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     # -------------------------------------------------------
     # Build task results

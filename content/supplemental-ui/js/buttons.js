@@ -207,10 +207,8 @@
       logEl.scrollTop = logEl.scrollHeight;
 
       // ── Update steps live ──
-      // Parse TASK names → step chips
       parseSolveLine(line, stepList, { currentTask: currentTask, pendingLi: pendingLi },
         function (state) { currentTask = state.currentTask; pendingLi = state.pendingLi; });
-      // Parse validation_check msg field → ✅/❌ step chips
       parseValidationMsg(line, stepList);
     };
 
@@ -237,7 +235,7 @@
     if (taskMatch) {
       var name = taskMatch[1].trim();
       // Skip internal housekeeping tasks not meaningful to students
-      if (/^Gathering Facts$|^Build task results|^build task|^set_fact|^ansible\.builtin\.set_fact|^Validate all tasks$/i.test(name)) {
+      if (/^Gathering Facts$|^Build task results|^build task|^set_fact|^ansible\.builtin\.set_fact|^Validate all tasks$|^Report individual task status$|^Fail if any task|^All validation checks/i.test(name)) {
         setState({ currentTask: null, pendingLi: null }); return;
       }
       var li = document.createElement('li');

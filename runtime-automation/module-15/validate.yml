@@ -23,7 +23,7 @@
     - name: Gather service facts
       ansible.builtin.service_facts:
       register: r_service_facts
-      ignore_errors: true
+      failed_when: false
 
     - name: Set libvirtd status facts
       ansible.builtin.set_fact:
@@ -53,7 +53,7 @@
       ansible.builtin.package_facts:
         manager: rpm
       register: r_pkg_facts
-      ignore_errors: true
+      failed_when: false
 
     - name: Check each required package is present
       ansible.builtin.set_fact:
@@ -81,7 +81,7 @@
       ansible.builtin.command: virsh list --all
       register: r_virsh_all
       changed_when: false
-      ignore_errors: true
+      failed_when: false
 
     - name: Derive vmguest-absent fact
       ansible.builtin.set_fact:
