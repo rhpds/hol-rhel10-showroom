@@ -127,12 +127,6 @@
         creates: "{{ libvirt_images_dir }}/vmguest.qcow2"
       register: r_rename
 
-    - name: Run workshop finish script
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -144,4 +138,3 @@
           compose FINISHED      : {{ 'ok' if compose_status.rc == 0 else 'NOT ok' }}
           compose UUID          : {{ image_uuid.stdout | trim }}
           vmguest.qcow2 present : ok
-          finish script         : {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}

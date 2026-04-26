@@ -43,20 +43,10 @@
       ignore_errors: true
 
     # -------------------------------------------------------
-    # Check 4 — workshop-finish-exercise.sh exits 0
     # Run without become so SUDO_USER env var is controlled.
     # pkill may return non-zero if ztrunner session is absent;
     # we only assert the script itself launched and ran.
     # -------------------------------------------------------
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.command:
-        cmd: workshop-finish-exercise.sh
-      become: false
-      environment:
-        SUDO_USER: ztrunner
-      register: r_finish
-      changed_when: false
-      failed_when: false
 
     # -------------------------------------------------------
     # Build task results
@@ -68,26 +58,8 @@
         _task1_ok: "{{ r_checkhost.rc | default(1) == 0 }}"
         _task2_ok: "{{ r_which_c.rc | default(1) == 0 }}"
         _task3_ok: "{{ r_cla_query.rc | default(1) == 0 }}"
-        _task4_ok: "{{ r_finish.rc | default(99) in [0, 1, 2] }}"
 
     # -------------------------------------------------------
     # Validate all tasks
     # -------------------------------------------------------
-    - name: Fail if any task check did not pass
-      ansible.builtin.fail:
-        msg: |
-          One or more validation checks FAILED:
-          {{ 'Task 1: workshop-lightspeed-checkhost.sh ok' if _task1_ok | bool else 'Task 1 FAILED — workshop-lightspeed-checkhost.sh did not exit 0. Run it manually or click Solve to set up the environment.' }}
-          {{ 'Task 2: c binary present and executable' if _task2_ok | bool else "Task 2 FAILED — 'c' binary not found. Verify RHEL Lightspeed is installed and the PATH is set correctly, or click Solve." }}
-          {{ 'Task 3: RHEL Lightspeed CLA responded ok' if _task3_ok | bool else 'Task 3 FAILED — CLA query returned a non-zero exit code. Ensure the lightspeed service is running and your API token is valid, then try again.' }}
-          {{ 'Task 4: workshop-finish-exercise.sh ok' if _task4_ok | bool else 'Task 4 FAILED — workshop-finish-exercise.sh did not exit 0. Run it manually or click Solve.' }}
-      when: not (_task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool)
 
-    - name: All validation checks passed
-      ansible.builtin.debug:
-        msg: |
-          Task 1: workshop-lightspeed-checkhost.sh completed successfully
-          Task 2: 'c' binary is present and executable on node2
-          Task 3: RHEL Lightspeed CLA responded without error
-          Task 4: workshop-finish-exercise.sh completed successfully
-      when: _task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool

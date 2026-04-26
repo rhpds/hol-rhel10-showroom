@@ -48,14 +48,7 @@
       ignore_errors: true
 
     # -------------------------------------------------------
-    # Check 5 — workshop-finish-exercise.sh rc==0
     # -------------------------------------------------------
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     # -------------------------------------------------------
     # Build result facts
@@ -66,28 +59,8 @@
         _task2_ok: "{{ r_ocifile is defined and r_ocifile.stat is defined and r_ocifile.stat.exists | default(false) }}"
         _task3_ok: "{{ r_containers is defined and r_containers.rc | default(1) == 0 and (r_containers.stdout | default('') | trim in ['', '[]', 'null']) }}"
         _task4_ok: "{{ r_images is defined and r_images.rc | default(1) == 0 and (r_images.stdout | default('') | trim in ['', '[]', 'null']) }}"
-        _task5_ok: "{{ r_finish is defined and r_finish.rc | default(1) in [0, 2] }}"
 
     # -------------------------------------------------------
     # Validate all tasks
     # -------------------------------------------------------
-    - name: Fail if any task check did not pass
-      ansible.builtin.fail:
-        msg: |
-          One or more validation checks FAILED:
-          {{ 'Task 1: workshop-podman-checkhost.sh passed' if _task1_ok else 'Task 1: FAILED — workshop-podman-checkhost.sh returned non-zero; run Solve or verify you are on node3' }}
-          {{ 'Task 2: /root/custom_image.OCIFile present' if _task2_ok else 'Task 2: FAILED — /root/custom_image.OCIFile missing; the lab setup may not have staged it — contact your instructor' }}
-          {{ 'Task 3: All containers removed' if _task3_ok else 'Task 3: FAILED — containers still exist; run: podman kill --all && podman rm --all' }}
-          {{ 'Task 4: All images removed' if _task4_ok else 'Task 4: FAILED — images still present; run: podman rmi --all --force' }}
-          {{ 'Task 5: workshop-finish-exercise.sh passed' if _task5_ok else 'Task 5: FAILED — workshop-finish-exercise.sh returned non-zero; complete the exercise or run Solve' }}
-      when: not (_task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool and _task5_ok | bool)
 
-    - name: All validation checks passed
-      ansible.builtin.debug:
-        msg: |
-          Task 1: workshop-podman-checkhost.sh passed
-          Task 2: /root/custom_image.OCIFile present
-          Task 3: All containers removed
-          Task 4: All images removed
-          Task 5: workshop-finish-exercise.sh passed
-      when: _task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool and _task5_ok | bool

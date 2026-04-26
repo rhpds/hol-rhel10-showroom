@@ -84,7 +84,6 @@
           journal tlog     : {{ 'ok' if ('TLOG_USER' in r_journal.stdout and 'TLOG_REC' in r_journal.stdout) else 'NOT ok — no tlog entries found' }}
           tlog playback    : {{ 'ok (Playback Finished)' if (r_playback.rc == 0 and 'Playback Finished' in r_playback.stdout) else 'NOT ok (rc=' + (r_playback.rc | string) + ')' }}
 
-# workshop-finish-exercise.sh runs on BASTION — resets the student terminal session
 - name: Session Logging Solve — finish on bastion
   hosts: bastions
   gather_facts: false
@@ -95,13 +94,6 @@
     ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
   tasks:
 
-    - name: Run workshop-finish-exercise.sh on bastion
-      ansible.builtin.shell:
-        SUDO_USER=ztrunner workshop-finish-exercise.sh
-      register: r_finish
-      ignore_errors: true
-      changed_when: false
 
     - name: Report finish result
       ansible.builtin.debug:
-        msg: "finish-exercise: {{ 'ok' if r_finish.rc == 0 else 'NOT ok (rc=' + (r_finish.rc | string) + ')' }}"

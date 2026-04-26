@@ -54,12 +54,6 @@
       register: r_dhcpv6_removed
       ignore_errors: true
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -69,4 +63,3 @@
           https (runtime)      : {{ 'ok' if r_https_runtime is not failed else 'NOT ok' }}
           runtime-to-permanent : {{ 'ok' if r_runtime_to_permanent.rc == 0 else 'NOT ok (rc=' ~ r_runtime_to_permanent.rc ~ ')' }}
           dhcpv6-client removed: {{ 'ok' if r_dhcpv6_removed is not failed else 'NOT ok' }}
-          finish-exercise      : {{ 'ok' if r_finish.rc == 0 else 'NOT ok (rc=' ~ r_finish.rc ~ ') [ignored]' }}

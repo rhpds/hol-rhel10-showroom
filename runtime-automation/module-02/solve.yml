@@ -61,12 +61,6 @@
       register: r_firewall
       ignore_errors: true
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell:
-        SUDO_USER=ztrunner workshop-finish-exercise.sh
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -77,4 +71,3 @@
           httpd started     : {{ 'ok' if r_httpd is not failed else 'NOT ok' }}
           mariadb started   : {{ 'ok' if r_mariadb is not failed else 'NOT ok' }}
           firewall http open: {{ 'ok' if r_firewall is not failed else 'NOT ok' }}
-          finish script     : {{ 'ok' if r_finish.rc == 0 else 'NOT ok (rc=' + (r_finish.rc | string) + ')' }}

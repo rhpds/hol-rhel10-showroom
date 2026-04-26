@@ -160,12 +160,6 @@
       delay: 10
       ignore_errors: true
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -179,4 +173,3 @@
           bootc-vm running    : {{ 'ok' if r_virt_install.rc | default(0) == 0 else 'NOT ok' }}
           VM IP               : {{ vm_ip_result.stdout | default('(none)') | trim }}
           HTTP SUCCESS        : {{ 'ok' if r_http.status | default(0) == 200 and 'SUCCESS' in (r_http.content | default('')) else 'NOT ok' }}
-          finish script       : {{ 'ok' if r_finish.rc | default(1) == 0 else 'ignored' }}

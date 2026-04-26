@@ -204,12 +204,6 @@
       changed_when: false
       ignore_errors: true
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -223,4 +217,3 @@
           CURL INDEX.HTML    : {{ 'ok' if 'Stop Disabling SELinux' in (r_curl_index.content | default('')) else 'NOT ok' }}
           CURL DAN-CRIES.TXT : {{ 'ok' if 'Every time you run setenforce 0' in (r_curl_dan.content | default('')) else 'NOT ok' }}
           SKOPEO COPY        : {{ 'ok' if r_skopeo.rc == 0 else 'NOT ok' }}
-          FINISH SCRIPT      : {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}

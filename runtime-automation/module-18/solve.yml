@@ -109,13 +109,6 @@
         masked: false
       ignore_errors: true
 
-    # workshop-finish-exercise.sh may fail with pkill on ztrunner — ignore_errors
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -128,4 +121,3 @@
           multi-port rule    : {{ 'ok' if r_rule_multi is not failed else 'NOT ok' }}
           table cleaned up   : {{ 'ok' if r_delete_table is not failed else 'NOT ok' }}
           firewalld restored : {{ 'ok' if r_flush is not failed else 'NOT ok' }}
-          finish script      : {{ 'ok' if r_finish.rc == 0 else 'NOT ok (ignored)' }}

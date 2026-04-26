@@ -85,12 +85,6 @@
       changed_when: true
       ignore_errors: true
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell:
-        cmd: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Collect post-state for report
       ansible.builtin.command:
@@ -116,7 +110,6 @@
           hello world run 1    : {{ 'ok' if 'hello world' in r_run1.stdout else 'NOT ok' }}
           hello world run 2    : {{ 'ok' if 'hello world' in r_run2.stdout else 'NOT ok' }}
           containers removed   : {{ 'ok' if r_rm_all.rc == 0 else 'NOT ok' }}
-          finish script        : {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}
           ubi:latest in images : {{ 'ok' if 'ubi10/ubi' in r_images_final.stdout else 'NOT ok' }}
           myfavorite in images : {{ 'ok' if 'myfavorite' in r_images_final.stdout else 'NOT ok' }}
           ubi-init absent      : {{ 'ok' if 'ubi-init' not in r_images_final.stdout else 'NOT ok (still present)' }}

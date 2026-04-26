@@ -188,12 +188,6 @@
 
     # SKIP: Cockpit Web Console VM inspection — browser UI only
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -205,4 +199,3 @@
           httpd-in-vm   : {{ 'ok' if r_httpd_check.rc | default(1) == 0 else 'FAILED' }}
           curl-success  : {{ 'ok' if r_curl.content is defined and 'Success' in r_curl.content else 'NOT ok' }}
           vm-cleanup    : ok
-          finish-script : {{ 'ok' if r_finish.rc == 0 else 'FAILED' }}

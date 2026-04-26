@@ -202,12 +202,6 @@
       changed_when: true
       ignore_errors: true
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -219,4 +213,3 @@
           Phase 3 VDO pool     : {{ 'ok' if r_lvconvert_vdo is not failed else 'NOT ok' }}
           Phase 3 /mnt/lab2    : {{ 'ok' if r_mkfs_xfs is not failed else 'NOT ok' }}
           Phase 3 data         : {{ 'ok' if r_populate is not failed else 'NOT ok' }}
-          finish script        : {{ 'ok' if r_finish.rc == 0 else 'NOT ok (ignored)' }}

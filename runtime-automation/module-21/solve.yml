@@ -124,12 +124,6 @@
     # SKIP: bpftrace file probe (no -c flag) — blocks indefinitely on events
 
     # ztrunner returns rc=2 which is expected — use ignore_errors
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      ignore_errors: true
-      changed_when: false
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -143,7 +137,6 @@
           strace openat      : {{ 'ok' if ('openat' in r_strace.stderr or 'openat' in r_strace.stdout) else 'NOT ok' }}
           bpftrace-all       : {{ 'ok' if 'sys_enter_openat' in r_bpftrace_all.stdout else 'NOT ok' }}
           bpftrace-single    : {{ 'ok' if 'sys_enter_openat' in r_bpftrace_single.stdout else 'NOT ok' }}
-          finish script      : {{ 'ok (rc=' + (r_finish.rc | string) + ')' }}
           SKIPPED (not automatable — foreground blocking processes):
             /usr/share/bcc/tools/execsnoop
             /usr/share/bcc/tools/mountsnoop

@@ -44,15 +44,6 @@
       changed_when: false
       ignore_errors: true
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.command:
-        cmd: workshop-finish-exercise.sh
-      become: false
-      environment:
-        SUDO_USER: ztrunner
-      register: r_finish
-      changed_when: false
-      failed_when: false
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -62,4 +53,3 @@
           CLA query 2       : {{ 'ok' if r_cla_02.rc == 0 else 'FAILED (rc=' + (r_cla_02.rc | string) + ')' }}
           CLA query 3 (typo): {{ 'ok' if r_cla_03.rc == 0 else 'FAILED (rc=' + (r_cla_03.rc | string) + ')' }}
           CLA query 4 (oos) : {{ 'ok' if r_cla_04.rc == 0 else 'FAILED (rc=' + (r_cla_04.rc | string) + ')' }}
-          finish script     : {{ 'ok' if r_finish.rc == 0 else 'FAILED (rc=' + (r_finish.rc | string) + ')' }}

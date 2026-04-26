@@ -79,18 +79,4 @@
       ansible.builtin.set_fact:
         _vde_cache_ok: "{{ (r_vde_verify.stdout | default('missing')) is search('ok') }}"
 
-    - name: Run workshop-finish-exercise.sh
-      ansible.builtin.shell: SUDO_USER=ztrunner workshop-finish-exercise.sh
-      become: false
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
-    - name: Report solve status
-      ansible.builtin.debug:
-        msg: |
-          checkhost script (rc==0):            {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
-          summitpool exists:                   {{ 'ok' if (r_pool_check.stdout | default('missing')) == 'found' else 'NOT ok' }}
-          /dev/vdd added as DATA tier:         {{ 'ok' if _vdd_data_ok else 'NOT ok' }}
-          /dev/vde added as CACHE tier:        {{ 'ok' if _vde_cache_ok else 'NOT ok' }}
-          workshop-finish-exercise.sh (rc==0): {{ 'ok' if r_finish.rc == 0 else 'NOT ok' }}

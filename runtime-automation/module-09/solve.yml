@@ -97,12 +97,6 @@
       changed_when: false
       ignore_errors: true
 
-    - name: Run workshop-finish-exercise.sh on node1
-      ansible.builtin.shell:
-        SUDO_USER=ztrunner workshop-finish-exercise.sh
-      register: r_finish
-      changed_when: false
-      ignore_errors: true
 
     - name: Report solve status
       ansible.builtin.debug:
@@ -113,4 +107,3 @@
           httpd active (running) : {{ 'ok' if 'active (running)' in r_httpd_status.stdout | default('') else 'NOT ok' }}
           mariadb override.conf  : {{ 'ok' if 'override.conf' in r_mariadb_cat.stdout | default('') else 'NOT ok' }}
           mariadb active         : {{ 'ok' if 'active (running)' in r_mariadb_status.stdout | default('') else 'NOT ok' }}
-          finish script          : {{ 'ok' if r_finish.rc | default(1) == 0 else 'NOT ok' }}
