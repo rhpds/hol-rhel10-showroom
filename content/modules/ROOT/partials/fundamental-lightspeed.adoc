@@ -160,6 +160,26 @@ In this example, `12Gi` (12 Gigabytes) of memory is available.
 ----
 
 
+Now let's take a quick look at a relatively new feature introduced into RHEL Lightspeed - RAG, or Retrieval Augmented Generation.  In general, RAG works by linking the pre-trained knowledge of a large language model (LLM) to external resources.  In this case, those external sources are things like official Red Hat documentation, Knowledge Base articles, and more.
+
+For example:
+
+[{format_cmd}]
+----
+c "when was RHEL 10 released?"
+----
+
+[{format_output}]
+----
+Red Hat Enterprise Linux 10 (RHEL 10) was GA (Generally Available) on May 20, 2025.
+
+Sources:
+- [Red Hat Enterprise Linux Life Cycle](https://access.redhat.com/support/policy/updates/errata/)
+----
+
+Notice that part of the output cites the source external to the LLM used as part of the RAG operation in order to answer the query.
+
+
 == What RHEL Lightspeed is not
 
 One last note on what RHEL Lightspeed is not.  While it is meant to be a tool to assist with the management and administration of RHEL systems and has special knowledge in those areas, it is not meant to be a general purpose generative AI tool like ChatGPT or similar offerings.  Sometimes queries outside of its intended area of expertise may result in positive results, but this it not the intended use case.  For example
