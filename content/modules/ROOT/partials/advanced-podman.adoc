@@ -334,8 +334,8 @@ podman images
 [{format_output}]
 ----
 REPOSITORY                            TAG         IMAGE ID      CREATED        SIZE
-localhost/custom_image                latest      d59222b092bf  3 seconds ago  257 MB
-registry.access.redhat.com/ubi10/ubi  latest      da862ffa1787  2 days ago     216 MB
+localhost/custom_image                latest      162395043b06  3 seconds ago  322 MB
+registry.access.redhat.com/ubi10/ubi  latest      a6ad0cc3cdc0  3 days ago     219 MB
 ----
 
 === Deploy
@@ -460,21 +460,16 @@ systemd-cgls --no-pager
 [{format_output}]
 ----
 ... SNIP ...
-└─machine.slice (#7107)
-  → trusted.invocation_id: aaf8887d115a4205a876885134f5b7c3
-  ├─libpod-2a60daa6c3abb5d5a7282598f2747999c0c71807752911b831a4e66743f084b8.scope … (#11452)
-  │ → trusted.delegate: 1
-  │ → trusted.invocation_id: 49c9ef47d6e04e6abc3bbb20a9943692
-  │ └─container (#11505)
-  │   ├─48787 /usr/sbin/httpd -D FOREGROUND
-  │   ├─48789 /usr/sbin/httpd -D FOREGROUND
-  │   ├─48790 /usr/sbin/httpd -D FOREGROUND
-  │   ├─48791 /usr/sbin/httpd -D FOREGROUND
-  │   └─48792 /usr/sbin/httpd -D FOREGROUND
-  └─libpod-conmon-2a60daa6c3abb5d5a7282598f2747999c0c71807752911b831a4e66743f084b8.scope … (#11399)
-    → trusted.delegate: 1
-    → trusted.invocation_id: e0b9d07bb47a4af7a859e492a86b85c0
-    └─48784 /usr/bin/conmon --api-version 1 -c 2a60daa6c3abb5d5a7282598f2747999c0c71807752911b831a4e66743f084b8 -u 2a60daa6>
+└─machine.slice
+  ├─libpod-conmon-ba12c95cddd936d93a77be8f8910380716293bf7b743e306474feed4b51bf13a.scope …
+  │ └─11604 /usr/bin/conmon --api-version 1 -c ba12c95cddd936d93a77be8f8910380716293bf7b743e306474feed4b51bf13a -u ba12c95cdd…
+  └─libpod-ba12c95cddd936d93a77be8f8910380716293bf7b743e306474feed4b51bf13a.scope …
+    └─container
+      ├─11606 /usr/sbin/httpd -D FOREGROUND
+      ├─11608 /usr/sbin/httpd -D FOREGROUND
+      ├─11609 /usr/sbin/httpd -D FOREGROUND
+      ├─11618 /usr/sbin/httpd -D FOREGROUND
+      └─11652 /usr/sbin/httpd -D FOREGROUND
 ----
 
 What we can tell is that our container is bound by a cgroup called "machine.slice".  Otherwise, nothing remarkable to discern here.

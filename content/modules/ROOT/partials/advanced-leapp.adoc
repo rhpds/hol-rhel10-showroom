@@ -26,7 +26,7 @@ The first several sections leading up to the actual upgrade are interactive and 
 
 == Getting Started
 
-For these exercises, you will be using the host `leapp` as user `root`.  Before you begin, confirm the node was provisioned with RHEL 9.6
+For these exercises, you will be using the host `leapp` as user `root`.  Before you begin, confirm the node was provisioned with RHEL 9.7
 
 Launch a 'tmux' (terminal multiplexer) in the second showroom terminal:
 
@@ -69,7 +69,7 @@ cat /etc/redhat-release
 
 [{format_output}]
 ----
-Red Hat Enterprise Linux release 9.6 (Plow)
+Red Hat Enterprise Linux release 9.7 (Plow)
 ----
 
 [{format_cmd}]
@@ -397,7 +397,7 @@ cat /etc/redhat-release
 
 [{format_output}]
 ----
-Red Hat Enterprise Linux release 10.0 (Coughlan)
+Red Hat Enterprise Linux release 10.1 (Coughlan)
 ----
 
 [{format_cmd}]
@@ -419,7 +419,7 @@ dnf repolist
 ----
 Updating Subscription Management repositories.
 
-This system has release set to 10.0 and it receives updates only for this release.  
+This system has release set to 10.1 and it receives updates only for this release.  
 
 repo id                               repo name
 rhel-10-for-x86_64-appstream-rpms     Red Hat Enterprise Linux 10 for x86_64 - AppStream (RPMs)
@@ -427,7 +427,7 @@ rhel-10-for-x86_64-baseos-rpms        Red Hat Enterprise Linux 10 for x86_64 - B
 rhel-10-for-x86_64-supplementary-rpms Red Hat Enterprise Linux 10 for x86_64 - Supplementary (RPMs)
 ----
 
-NOTE: The Leapp process has explicitly set the release version to "10.0".  This means that updates will only be available and applied for the RHEL 10.0 version.  This can be modified to a more general version "10" in order to receive ongoing updates as more point releases of RHEL 10 come out using either of the following:
+NOTE: The Leapp process has explicitly set the release version to "10.1".  This means that updates will only be available and applied for the RHEL 10.1 version.  This can be modified to a more general version "10" in order to receive ongoing updates as more point releases of RHEL 10 come out using either of the following:
 
 [{format_output}]
 ----

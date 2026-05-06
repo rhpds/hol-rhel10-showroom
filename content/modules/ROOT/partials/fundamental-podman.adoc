@@ -87,7 +87,7 @@ podman info
 ----
 host:
   arch: amd64
-  buildahVersion: 1.39.4
+  buildahVersion: 1.41.8
   cgroupControllers:
   - cpuset
   - cpu
@@ -97,6 +97,7 @@ host:
   - pids
   - rdma
   - misc
+  - dmem
   cgroupManager: systemd
   cgroupVersion: v2
   conmon:
@@ -137,11 +138,11 @@ podman pull registry.access.redhat.com/ubi10/ubi:latest
 Trying to pull registry.access.redhat.com/ubi10/ubi:latest...
 Getting image source signatures
 Checking if image destination supports signatures
-Copying blob 7fdd59f6557b done   | 
-Copying config da862ffa17 done   | 
+Copying blob 3136fd33b3e8 done   |
+Copying config a6ad0cc3cd done   |
 Writing manifest to image destination
 Storing signatures
-da862ffa17875f5980832d6d8cd545f75e7cf3175a710b6529d7f7fc5fd650d1
+a6ad0cc3cdc024b8cbef8bd472516d35be8409edfd2e1c835e8d73b08692be4b
 ----
 
 Have a look at the image list now.
@@ -154,7 +155,7 @@ podman images
 [{format_output}]
 ----
 REPOSITORY                            TAG         IMAGE ID      CREATED     SIZE
-registry.access.redhat.com/ubi10/ubi  latest      da862ffa1787  2 days ago  216 MB
+registry.access.redhat.com/ubi10/ubi  latest      a6ad0cc3cdc0  2 days ago  219 MB
 ----
 
 NOTE: If you are a subscriber to Red Hat Enterprise Linux, you can pull authentic Red Hat certified images directly from Red Hat's repository.  For example: `podman pull rhel7.9 --creds 'username:password'`
@@ -175,9 +176,9 @@ podman images
 [{format_output}]
 ----
 REPOSITORY                                    TAG         IMAGE ID      CREATED       SIZE
-registry.access.redhat.com/ubi10/ubi-init     latest      7f2cd7fb740c  37 hours ago  236 MB
-registry.access.redhat.com/ubi10/ubi          latest      da862ffa1787  2 days ago    216 MB
-registry.access.redhat.com/ubi10/ubi-minimal  latest      94287c165ee4  2 days ago    85.3 MB
+registry.access.redhat.com/ubi10/ubi-init     latest      fef4c6b52d84  2 days ago  239 MB
+registry.access.redhat.com/ubi10/ubi          latest      a6ad0cc3cdc0  2 days ago  219 MB
+registry.access.redhat.com/ubi10/ubi-minimal  latest      8785fdcbdae0  3 days ago  87.4 MB
 ----
 
 
@@ -200,10 +201,10 @@ podman images
 [{format_output}]
 ----
 REPOSITORY                                    TAG         IMAGE ID      CREATED       SIZE
-registry.access.redhat.com/ubi10/ubi-init     latest      7f2cd7fb740c  37 hours ago  236 MB
-localhost/myfavorite                          latest      da862ffa1787  2 days ago    216 MB
-registry.access.redhat.com/ubi10/ubi          latest      da862ffa1787  2 days ago    216 MB
-registry.access.redhat.com/ubi10/ubi-minimal  latest      94287c165ee4  2 days ago    85.3 MB
+registry.access.redhat.com/ubi10/ubi-init     latest      fef4c6b52d84  2 days ago  239 MB
+localhost/myfavorite                          latest      a6ad0cc3cdc0  2 days ago  219 MB
+registry.access.redhat.com/ubi10/ubi          latest      a6ad0cc3cdc0  2 days ago  219 MB
+registry.access.redhat.com/ubi10/ubi-minimal  latest      8785fdcbdae0  3 days ago  87.4 MB
 ----
 
 Notice how the image-id for "ubi" and "myfavorite" are identical.
@@ -234,9 +235,9 @@ podman images
 [{format_output}]
 ----
 REPOSITORY                                    TAG         IMAGE ID      CREATED     SIZE
-localhost/myfavorite                          latest      da862ffa1787  2 days ago  216 MB
-registry.access.redhat.com/ubi10/ubi          latest      da862ffa1787  2 days ago  216 MB
-registry.access.redhat.com/ubi10/ubi-minimal  latest      94287c165ee4  2 days ago  85.3 MB
+localhost/myfavorite                          latest      a6ad0cc3cdc0  2 days ago  219 MB
+registry.access.redhat.com/ubi10/ubi          latest      a6ad0cc3cdc0  2 days ago  219 MB
+registry.access.redhat.com/ubi10/ubi-minimal  latest      8785fdcbdae0  3 days ago  87.4 MB
 ----
 
 
@@ -295,24 +296,6 @@ Check out 'podman info' one more time and you should notice a few changes.
 [{format_cmd}]
 ----
 podman info
-----
-
-[{format_output}]
-----
-host:
-  arch: amd64
-  buildahVersion: 1.39.4
-  cgroupControllers:
-  - cpuset
-  - cpu
-  - io
-  - memory
-  - hugetlb
-  - pids
-  - rdma
-  - misc
-
-...<output truncated>...
 ----
 
 Again, there is a lot of information here.  But if you dig into it, you should notice that 

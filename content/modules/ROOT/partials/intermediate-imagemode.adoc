@@ -75,19 +75,35 @@ podman build --file /usr/local/etc/sample-rhel-bootc.ocifile --tag localhost/cus
 [{format_plain}]
 ----
 <...SNIP...>
-13/15] Installing mod_http2-0:2.0.29-3 100% |  69.4 MiB/s | 426.1 KiB |  00m00s
-[14/15] Installing apr-util-openssl-0:1 100% |  11.3 MiB/s |  23.2 KiB |  00m00s
-[15/15] Installing julietaula-montserra 100% |  19.0 MiB/s |   5.6 MiB |  00m00s
+  Installing       : redhat-logos-httpd-100.2-1.el10.noarch               11/12 
+  Installing       : httpd-2.4.63-4.el10_1.3.x86_64                       12/12 
+  Running scriptlet: httpd-2.4.63-4.el10_1.3.x86_64                       12/12 
+Installed products updated.
+
+Installed:
+  apr-1.7.5-2.el10.x86_64                                                       
+  apr-util-1.6.3-23.el10_1.x86_64                                               
+  apr-util-lmdb-1.6.3-23.el10_1.x86_64                                          
+  apr-util-openssl-1.6.3-23.el10_1.x86_64                                       
+  httpd-2.4.63-4.el10_1.3.x86_64                                                
+  httpd-core-2.4.63-4.el10_1.3.x86_64                                           
+  httpd-filesystem-2.4.63-4.el10_1.3.noarch                                     
+  httpd-tools-2.4.63-4.el10_1.3.x86_64                                          
+  mailcap-2.1.54-8.el10.noarch                                                  
+  mod_http2-2.0.29-3.el10.x86_64                                                
+  mod_lua-2.4.63-4.el10_1.3.x86_64                                              
+  redhat-logos-httpd-100.2-1.el10.noarch                                        
+
 Complete!
---> 0016e70430c5
+--> 4cdf69cb9443
 STEP 3/4: RUN echo "* SUCCESS: hello bootc *" > /var/www/html/index.html
---> 712acb6260e6
+--> 4157eacdf399
 STEP 4/4: RUN systemctl enable httpd.service
 Created symlink '/etc/systemd/system/multi-user.target.wants/httpd.service' → '/usr/lib/systemd/system/httpd.service'.
 COMMIT localhost/custom-bootc
---> 15e3cafbfe9e
+--> 8cb77a2390f9
 Successfully tagged localhost/custom-bootc:latest
-15e3cafbfe9e01b35ddf69c65667ce1be72f3ffebb26c50693bf59ebeb9c4566
+8cb77a2390f9e2f1e98af7a16188e9543e250878be39e4ec05f924d21507ca4
 ----
 
 And verify our newly built container image
@@ -99,9 +115,9 @@ podman images
 
 [{format_plain}]
 ----
-REPOSITORY                             TAG         IMAGE ID      CREATED         SIZE
-localhost/custom-bootc                 latest      e57d76e82188  35 seconds ago  1.5 GB
-quay.io/redhat-gpte/rhel10/rhel-bootc  latest      a93f5ef0baa4  3 months ago    1.43 GB
+REPOSITORY                             TAG         IMAGE ID      CREATED        SIZE
+localhost/custom-bootc                 latest      8cb77a2390f9  2 minutes ago  1.56 GB
+quay.io/redhat-gpte/rhel10/rhel-bootc  latest      a93f5ef0baa4  11 months ago  1.43 GB
 ----
 
 == Create VM Image
@@ -131,8 +147,8 @@ Ensure we have an SSH key.
 [{format_cmd}]
 ----
 SSH_IDENTITY=$(eval echo $(ssh -G localhost | awk '$1=="identityfile"{print $2;exit;}'))
-[[ -f ${SSH_IDENTITY} ]] || ssh-keygen ${SSH_IDENTITY} -P '' 
-export SSH_KEY=$(cat ${SSH_IDENTITY%.*}.pub)
+[[ -f ${SSH_IDENTITY} ]] || ssh-keygen -f ${SSH_IDENTITY} -P '' -t rsa 
+export SSH_KEY=$(cat ${SSH_IDENTITY}.pub)
 
 echo ${SSH_KEY}
 ----

@@ -116,25 +116,69 @@ c "hwo mcuh memonry is left on symtset"
 
 [{format_plain}]
 ----
-It seems there might be a typo in your query. If you're asking about the amount
-of memory left on your system, you can check that using the free -h command in
-the terminal. This will display the total amount of free and used physical and
-swap memory in the system, as well as the buffers and caches used by the kernel.
+To check how much memory is left on a Red Hat Enterprise Linux system, you can use the `free` command.
 
-Here's how you can do it:
+Open a terminal and run:
 
-1. Open a terminal window.
-2. Type free -h and press Enter.
+```bash
+free -h
+```
 
-The output will look something like this:
-
-Snippet ────────────────
-total        used        free      shared  buff/cache   available
-Mem:           7.7G       1.2G       5.1G       122M       1.3G       5.8G
-Swap:          2.0G       894M       1.1G
-────────────────────────
+This command will display memory usage in a human-readable format. Look for the `total`, `used`, `free`, and `available` columns. The `available` column is generally the most important as it indicates how much memory is available for new applications without swapping.
 ----
 
+That is helpful, but it is interesting to note that you can ask Lightspeed the exact same question and get a different response:
+
+[{format_cmd}]
+----
+c "hwo mcuh memonry is left on symtset"
+----
+
+[{format_plain}]
+----
+To check how much memory is left on your Red Hat Enterprise Linux system, you can use the `free` command.
+
+Open your terminal and run:
+
+```bash
+free -h
+```
+
+The `-h` option displays the output in human-readable format (e.g., GB, MB).
+
+Look at the `Mem:` line. The `available` column shows an estimate of how much memory is available for starting new applications, without swapping. This is generally the most relevant number for understanding "how much memory is left."
+
+For example, an output might look like this:
+
+```
+              total        used        free      shared  buff/cache   available
+Mem:           15Gi       2.0Gi       8.0Gi       1.0Gi       5.0Gi        12Gi
+Swap:         8.0Gi       0.0B        8.0Gi
+```
+
+In this example, `12Gi` (12 Gigabytes) of memory is available.
+----
+
+== New Feature in RHEL Lightspeed - RAG
+
+Now let's take a quick look at a relatively new feature introduced into RHEL Lightspeed - RAG, or Retrieval Augmented Generation.  In general, RAG works by linking the pre-trained knowledge of a large language model (LLM) to external resources.  In this case, those external sources are things like official Red Hat documentation, Knowledge Base articles, and more.
+
+For example:
+
+[{format_cmd}]
+----
+c "when was RHEL 10 released?"
+----
+
+[{format_output}]
+----
+Red Hat Enterprise Linux 10 (RHEL 10) was GA (Generally Available) on May 20, 2025.
+
+Sources:
+- [Red Hat Enterprise Linux Life Cycle](https://access.redhat.com/support/policy/updates/errata/)
+----
+
+Notice that part of the output cites the source external to the LLM used as part of the RAG operation in order to answer the query.
 
 
 == What RHEL Lightspeed is not
@@ -148,10 +192,10 @@ c "what is the genus of a sandhill crane"
 
 [{format_plain}]
 ----
-I'm sorry, but my expertise lies in Red Hat Enterprise Linux and related Linux
-topics. I don't have the capability to provide information about ornithology or
-the classification of birds. For accurate information about the genus of a sandhill
-crane, I recommend consulting a reliable biology or ornithology resource.
+I'm a Red Hat Enterprise Linux expert assistant, and I can help you with
+RHEL-related questions. However, I don't have information about the genus
+of a sandhill crane. You might find that information from a biological or
+ornithological resource.
 ----
 
 

@@ -20,8 +20,9 @@ image::rhel-logo-black.jpg[Red Hat Enterprise Linux logo,55%,55%,link=self,windo
 == Presented By
 
   * Christoph Doerbeck
-  * Eddie Chen
   * Gordon Keegan
+  * Lynn Dixon
+  * Jay Cromer
 
 
 
@@ -70,39 +71,33 @@ Units are NOT designed to:
     * Build muscle memory by forcing you to type everything out
     * Put you to sleep
 
-== Technical Requirements
+== Workshop Resources
 
 This workshop environment provides:
 
-  * **Host Systems**: Multiple RHEL 10 nodes (bastion, node1, node2, node3) for hands-on exercises
-  * **Networking**: Pre-configured network connectivity between nodes
-  * **Storage**: Multiple block devices per node for storage exercises
-  * **Web Console Access**: Cockpit web interface available on port 443/9090
-  * **Terminal Access**: SSH and web-based terminal (wetty) available
-  * **Pre-installed Software**: Essential packages and workshop scripts already configured
-
-=== Prerequisites
-
-  * Basic Linux command-line knowledge
-  * Familiarity with SSH and terminal operations
-  * Understanding of basic system administration concepts
-  * Web browser for accessing Cockpit and terminal interfaces
-
-=== Environment Access
-
-  * **Bastion Host**: Your entry point to the workshop environment
-  * **Terminal**: Use the Showroom terminal panel on the right
-  * **Web Console**: Access via the Cockpit tab when working with node3
-  * **Setup Required**: Complete the "Getting Started" steps before beginning exercises
+    * **Jump Host**: All activities begin from the jump-host (bastion)
+    * **Host Systems**: Exercises are performed on the 3 RHEL 10.1 nodes (node1, node2 & node3) and on the RHEL 9.7 leapp node.
+    * **Networking**: Pre-configured network connectivity between nodes
+    * **Storage**: Multiple block devices per node for storage exercises
+    * **Pre-installed Software**: Essential packages and workshop scripts already configured
+    * **Showroom**: Integrated Documentation and Interaction Portal
+    ** **Terminal Access**: web-based terminal session(s)
+    ** **Web Console Access**: direct access to cockpit management via the Showroom Tab
 
 == How to Proceed
 
-Once the setup playbooks have completed, you can proceed directly to topics that interest you the most.
+Use the catalog on the left with drop-down arrows to navigate and select the activities you want to work on.
+Activites for the workshop are structured into 3 sequential *Learning Paths*:
 
-  * Use the catalog on the left with drop-down arrows to select the units
-  * If you want to follow a sequential *learning path*, exercises are conveniently grouped *By Skill Level* or *By Category*
+  * RHEL 10 Spotlight
+  * All Exercises
+  ** By Skill Level
+  ** By Category
 
-If you elect to follow a *learning path*, you can use the navigation icons at the bottom of each unit to advance to the 'Next' unit in your path.
+The **RHEL 10 Spotlight** learning path covers activites pertinent to this modern release of Red Hat Enterprise Linux.
+The **By Skill Level** and **By Category** learning paths provide all exercises arranged by (you guessed it) skill level or by a particular category.
+
+At the conclusion of each exercise, you can use the navigation icons at the bottom to advance to the 'Next' unit in your path.
 
 It's up to you.  Ask questions and enjoy!
 
