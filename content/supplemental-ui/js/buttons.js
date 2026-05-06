@@ -83,11 +83,13 @@
       if (term) {
         command = command.replace(/[\\r\\n]+$/, "");
 
+        // Method 1: Try terminal client object (most reliable)
         if (window.client && typeof window.client.sendData === 'function') {
           window.client.sendData(command + '\\r');
           return;
         }
 
+        // Method 2: Simulate keyboard input using xterm.js internal API
         if (term._core && term._core.coreService && term._core.coreService._inputHandler) {
           for (var i = 0; i < command.length; i++) {
             term._core.coreService._inputHandler.parse(command[i]);
@@ -96,11 +98,13 @@
           return;
         }
 
+        // Method 3: Try accessing onData handler through _core
         if (term._core && term._core._onData) {
           term._core._onData.fire(command + '\\r');
           return;
         }
 
+        // Method 4: Fallback - write to display only (won't execute)
         term.write(command + '\\r\\n');
       }
     }
@@ -145,13 +149,17 @@
     });
   }
 
+  // ── Live panel ────────────────────────────────────────────────────────────
+
   function runStream(stage, moduleName, section) {
     var btn = section.querySelector('.' + stage + '-btn');
     var label = stage === 'solve' ? '🚀 Solve Module' : '✓ Validate Module';
 
+    // Remove existing panel if re-running
     var old = section.querySelector('.stream-panel');
     if (old) old.remove();
 
+    // Create live panel — no IDs, use querySelector on the panel itself
     var panel = document.createElement('div');
     panel.className = 'stream-panel';
     panel.innerHTML =
@@ -171,10 +179,12 @@
     btn.disabled = true;
     btn.textContent = '⏳ Running...';
 
+    // Reference elements directly from panel — no getElementById, no duplicate ID issues
     var statusEl  = panel.querySelector('.stream-status');
     var stepList  = panel.querySelector('.sp-step-list');
     var logEl     = panel.querySelector('.sp-log-content');
 
+    // State for solve step tracking
     var currentTask = null;
     var pendingLi   = null;
 
@@ -192,9 +202,11 @@
       var line = '';
       try { line = JSON.parse(event.data); } catch (x) { line = event.data; }
 
+      // ── Append to full log ──
       logEl.textContent += line;
       logEl.scrollTop = logEl.scrollHeight;
 
+      // ── Update steps live ──
       parseSolveLine(line, stepList, { currentTask: currentTask, pendingLi: pendingLi },
         function (state) { currentTask = state.currentTask; pendingLi = state.pendingLi; });
       parseValidationMsg(line, stepList);
@@ -209,6 +221,10 @@
     };
   }
 
+  // ── Live solve parser ─────────────────────────────────────────────────────
+  // Tracks TASK [name] → ok/changed/failed lines and updates step chips live.
+  // Strips ANSI escape codes before matching (Ansible uses color codes).
+
   function stripAnsi(s) {
     return s.replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '').replace(/\r/g, '');
   }
@@ -218,7 +234,8 @@
     var taskMatch = clean.match(/TASK \[([^\]]+)\]/);
     if (taskMatch) {
       var name = taskMatch[1].trim();
-      if (/^Gathering Facts$|^Build task results|^build task|^set_fact|^ansible\.builtin\.set_fact|^Validate all tasks$/i.test(name)) {
+      // Skip internal housekeeping tasks not meaningful to students
+      if (/^Gathering Facts$|^Build task results|^build task|^set_fact|^ansible\.builtin\.set_fact|^Validate all tasks$|^Report individual task status$|^Fail if any task|^All validation checks/i.test(name)) {
         setState({ currentTask: null, pendingLi: null }); return;
       }
       var li = document.createElement('li');
@@ -248,8 +265,34 @@
     }
   }
 
+  // ── Live validate parser ──────────────────────────────────────────────────
+  // Adds ✅/❌ chips as validation_check lines stream in.
+
+  function parseValidateLine(line, stepList) {
+    var t = stripAnsi(line).trim();
+    if (/^✅/.test(t)) {
+      var li = document.createElement('li');
+      li.className = 'sp-step sp-step-ok';
+      li.textContent = t;
+      stepList.appendChild(li);
+    } else if (/^❌/.test(t)) {
+      var li2 = document.createElement('li');
+      li2.className = 'sp-step sp-step-fail';
+      li2.textContent = t;
+      stepList.appendChild(li2);
+    }
+  }
+
+  // ── validation_check msg parser ───────────────────────────────────────────
+  // validation_check writes pass/error msg to output.txt AND returns it in
+  // result['msg'] which appears in Ansible stdout as:
+  //   "msg": "✅ Task 1: ...\n✅ Task 2: ...\n : Message written to log"
+  // Extract each ✅/❌ line and show as a step chip.
+
   function parseValidationMsg(line, stepList) {
     var clean = stripAnsi(line).trim();
+    // Look for the "msg": "..." pattern from validation_check
+    // "msg": "..." — no closing } on this line, match to end of string
     var msgMatch = clean.match(/"msg":\s*"(.+)"$/);
     if (!msgMatch) return;
     var msg = msgMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
@@ -269,6 +312,8 @@
     });
   }
 
+  // ── Finalize status banner ────────────────────────────────────────────────
+
   function finalize(stage, statusEl, stepList, logEl) {
     var hasFail = stepList.querySelector('.sp-step-fail');
     var hasPending = stepList.querySelector('.sp-step-pending');
@@ -287,6 +332,8 @@
   function escHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
 
   function init() { initSendTo(); initSolve(); initValidate(); }
 
