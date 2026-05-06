@@ -1,0 +1,132 @@
+---
+# Module 06 — Web Console (cockpit) Validation
+# Checks durable outcomes of each automatable student step on node3.
+
+- name: Web Console (cockpit) Validation
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    tuned_profile: throughput-performance
+    firewall_zone: public
+    sample_file: /var/tmp/webconsole-sample.txt
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — pmlogger service is active and enabled
+    # -------------------------------------------------------
+    - name: Check pmlogger active state
+      ansible.builtin.command:
+        cmd: systemctl is-active pmlogger
+      register: r_pmlogger_active
+      changed_when: false
+      failed_when: false
+
+    - name: Check pmlogger enabled state
+      ansible.builtin.command:
+        cmd: systemctl is-enabled pmlogger
+      register: r_pmlogger_enabled
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 2 — tuned active profile is throughput-performance
+    # -------------------------------------------------------
+    - name: Check tuned active profile
+      ansible.builtin.command:
+        cmd: tuned-adm active
+      register: r_tuned
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 3 — ntp service is in public zone firewall rules
+    # -------------------------------------------------------
+    - name: Check ntp in public firewall zone
+      ansible.builtin.command:
+        cmd: firewall-cmd --list-services --zone=public
+      register: r_firewall
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 4 — chronyd service is active and enabled
+    # -------------------------------------------------------
+    - name: Check chronyd active state
+      ansible.builtin.command:
+        cmd: systemctl is-active chronyd
+      register: r_chronyd_active
+      changed_when: false
+      failed_when: false
+
+    - name: Check chronyd enabled state
+      ansible.builtin.command:
+        cmd: systemctl is-enabled chronyd
+      register: r_chronyd_enabled
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 5 — /var/tmp/webconsole-sample.txt exists
+    # -------------------------------------------------------
+    - name: Check webconsole-sample.txt exists
+      ansible.builtin.stat:
+        path: "{{ sample_file }}"
+      register: r_sample_file
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Build task result booleans
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: >-
+          {{
+            (r_pmlogger_active.stdout | default('') | trim) == 'active'
+            and (r_pmlogger_enabled.stdout | default('') | trim) in ['enabled', 'static']
+          }}
+        _task2_ok: >-
+          {{
+            tuned_profile in (r_tuned.stdout | default(''))
+          }}
+        _task3_ok: >-
+          {{
+            'ntp' in (r_firewall.stdout | default(''))
+          }}
+        _task4_ok: >-
+          {{
+            (r_chronyd_active.stdout | default('') | trim) == 'active'
+            and (r_chronyd_enabled.stdout | default('') | trim) in ['enabled', 'static']
+          }}
+        _task5_ok: >-
+          {{
+            (r_sample_file.stat | default({})).exists | default(false)
+          }}
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: pmlogger is active and enabled' if _task1_ok else 'Task 1: FAILED — pmlogger is not active or not enabled. In Cockpit go to Performance Metrics and enable Persistent Metrics Storage, or run: systemctl enable --now pmlogger' }}
+          {{ 'Task 2: tuned profile is throughput-performance' if _task2_ok else 'Task 2: FAILED — wrong tuned profile active (' + (r_tuned.stdout | default('unknown') | trim) + '). In Cockpit go to Overview > Performance Profile and select throughput-performance, or run: tuned-adm profile throughput-performance' }}
+          {{ 'Task 3: ntp is in public firewall zone' if _task3_ok else 'Task 3: FAILED — ntp service missing from public zone. In Cockpit go to Networking > Firewall > Add Services and add ntp, or run: firewall-cmd --zone=public --add-service=ntp --permanent && firewall-cmd --reload' }}
+          {{ 'Task 4: chronyd is active and enabled' if _task4_ok else 'Task 4: FAILED — chronyd is not active or not enabled. Run: systemctl enable --now chronyd' }}
+          {{ 'Task 5: /var/tmp/webconsole-sample.txt exists' if _task5_ok else 'Task 5: FAILED — file not found. In Cockpit open the Terminal and run: echo test > /var/tmp/webconsole-sample.txt, or click Solve' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: pmlogger service is active and enabled
+          Task 2: tuned profile is throughput-performance
+          Task 3: ntp is present in the public firewall zone
+          Task 4: chronyd service is active and enabled
+          Task 5: /var/tmp/webconsole-sample.txt exists
+      when: _task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok

@@ -1,0 +1,119 @@
+---
+- name: Package Management pt.2 (dnf) Validation
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — net-tools package is installed
+    # -------------------------------------------------------
+    - name: Check net-tools is installed
+      ansible.builtin.command: rpm -q net-tools
+      register: r_net_tools
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 2 — dnf alias 'ls' exists (ls=list)
+    # -------------------------------------------------------
+    - name: Check dnf alias ls exists
+      ansible.builtin.shell: >
+        dnf alias list 2>/dev/null | grep -i "Alias ls=" && echo ok || echo missing
+      register: r_alias_ls
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 3 — dnf alias 'li' exists (repoquery --installed)
+    # -------------------------------------------------------
+    - name: Check dnf alias li exists
+      ansible.builtin.shell: >
+        dnf alias list 2>/dev/null | grep -i "Alias li=" && echo ok || echo missing
+      register: r_alias_li
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 4 — dnf alias 'la' has been deleted (must NOT exist)
+    # -------------------------------------------------------
+    - name: Check dnf alias la is absent
+      ansible.builtin.shell: >
+        dnf alias list 2>/dev/null | grep -i "Alias la=" && echo found || echo absent
+      register: r_alias_la
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 5 — epel-release package is installed
+    # -------------------------------------------------------
+    - name: Check epel-release is installed
+      ansible.builtin.command: rpm -q epel-release
+      register: r_epel_pkg
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 6 — EPEL repo is permanently disabled
+    #           Accept either enabled=0 in config file OR
+    #           absence from 'dnf repolist' output
+    # -------------------------------------------------------
+    - name: Check EPEL repo is disabled in config file
+      ansible.builtin.shell: >
+        grep -q 'enabled=0' /etc/yum.repos.d/epel.repo 2>/dev/null && echo disabled || echo enabled
+      register: r_epel_conf
+      changed_when: false
+      failed_when: false
+
+    - name: Check EPEL absent from active repolist (secondary check)
+      ansible.builtin.shell: >
+        dnf repolist 2>/dev/null | grep -qi '^epel' && echo found || echo absent
+      register: r_epel_repolist
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Build task results
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_net_tools.rc | default(1) == 0 }}"
+        _task2_ok: "{{ 'ok' in (r_alias_ls.stdout | default('missing')) }}"
+        _task3_ok: "{{ 'ok' in (r_alias_li.stdout | default('missing')) }}"
+        _task4_ok: "{{ 'absent' in (r_alias_la.stdout | default('found')) }}"
+        _task5_ok: "{{ r_epel_pkg.rc | default(1) == 0 }}"
+        _task6_ok: >-
+          {{
+            'disabled' in (r_epel_conf.stdout | default('enabled'))
+            or 'absent' in (r_epel_repolist.stdout | default('found'))
+          }}
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: net-tools package is installed' if _task1_ok else 'Task 1: net-tools is NOT installed — run: dnf install -y net-tools' }}
+          {{ 'Task 2: dnf alias ls exists (ls=list)' if _task2_ok else "Task 2: dnf alias 'ls' is missing — run: dnf alias add ls=list" }}
+          {{ 'Task 3: dnf alias li exists (repoquery --installed)' if _task3_ok else "Task 3: dnf alias 'li' is missing — run: dnf alias add li='repoquery --installed --qf ...' as shown in the lab" }}
+          {{ 'Task 4: dnf alias la has been deleted' if _task4_ok else "Task 4: dnf alias 'la' still exists — run: dnf alias delete la" }}
+          {{ 'Task 5: epel-release package is installed' if _task5_ok else 'Task 5: epel-release is NOT installed — run: dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm' }}
+          {{ 'Task 6: EPEL repo is permanently disabled' if _task6_ok else 'Task 6: EPEL repo is still enabled — run: dnf config-manager --set-disabled epel' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok and _task6_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: net-tools package is installed
+          Task 2: dnf alias 'ls' exists (ls=list)
+          Task 3: dnf alias 'li' exists (repoquery --installed)
+          Task 4: dnf alias 'la' has been deleted
+          Task 5: epel-release package is installed
+          Task 6: EPEL repo is permanently disabled
+      when: _task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok and _task6_ok

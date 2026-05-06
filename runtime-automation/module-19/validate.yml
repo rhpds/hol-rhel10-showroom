@@ -1,0 +1,66 @@
+---
+- name: Containers pt.3 (podman namespaces) — Validation
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    student_user: "{{ user | default('') }}"
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — Workshop host sanity (workshop-podman-checkhost.sh)
+    # -------------------------------------------------------
+    - name: Run workshop-podman-checkhost.sh
+      ansible.builtin.command: workshop-podman-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 2 — OCIFile pre-staged at /root/custom_image.OCIFile
+    # -------------------------------------------------------
+    - name: Stat /root/custom_image.OCIFile
+      ansible.builtin.stat:
+        path: /root/custom_image.OCIFile
+      register: r_ocifile
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 3 — All containers removed (podman ps -a empty)
+    # -------------------------------------------------------
+    - name: List all containers
+      ansible.builtin.command: podman ps -a --format json
+      register: r_containers
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 4 — All images removed (podman images empty)
+    # -------------------------------------------------------
+    - name: List all images
+      ansible.builtin.command: podman images --format json
+      register: r_images
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # -------------------------------------------------------
+
+    # -------------------------------------------------------
+    # Build result facts
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_checkhost is defined and r_checkhost.rc | default(1) == 0 }}"
+        _task2_ok: "{{ r_ocifile is defined and r_ocifile.stat is defined and r_ocifile.stat.exists | default(false) }}"
+        _task3_ok: "{{ r_containers is defined and r_containers.rc | default(1) == 0 and (r_containers.stdout | default('') | trim in ['', '[]', 'null']) }}"
+        _task4_ok: "{{ r_images is defined and r_images.rc | default(1) == 0 and (r_images.stdout | default('') | trim in ['', '[]', 'null']) }}"
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+

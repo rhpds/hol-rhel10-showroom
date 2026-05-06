@@ -1,0 +1,115 @@
+---
+- name: Containers pt.1 (podman) — Fundamental Solve
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+
+    - name: Run workshop-podman-checkhost.sh
+      ansible.builtin.command:
+        cmd: workshop-podman-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    - name: Assert checkhost passed
+      ansible.builtin.assert:
+        that: r_checkhost.rc == 0
+        fail_msg: "workshop-podman-checkhost.sh failed — wrong host or environment not ready"
+        success_msg: "Host check passed"
+
+    - name: Verify podman info (rc==0)
+      ansible.builtin.command:
+        cmd: podman info
+      register: r_podman_info
+      changed_when: false
+      ignore_errors: true
+
+    - name: Pull ubi10/ubi:latest
+      ansible.builtin.command:
+        cmd: podman pull registry.access.redhat.com/ubi10/ubi:latest
+      register: r_pull_ubi
+      changed_when: true
+      ignore_errors: true
+
+    - name: Pull ubi10/ubi-minimal
+      ansible.builtin.command:
+        cmd: podman pull registry.access.redhat.com/ubi10/ubi-minimal
+      register: r_pull_minimal
+      changed_when: true
+      ignore_errors: true
+
+    - name: Pull ubi10/ubi-init
+      ansible.builtin.command:
+        cmd: podman pull registry.access.redhat.com/ubi10/ubi-init
+      register: r_pull_init
+      changed_when: true
+      ignore_errors: true
+
+    - name: Tag ubi image as myfavorite
+      ansible.builtin.command:
+        cmd: podman tag registry.access.redhat.com/ubi10/ubi myfavorite
+      register: r_tag
+      changed_when: true
+      ignore_errors: true
+
+    - name: Remove ubi-init image (full name to avoid short-name prompt)
+      ansible.builtin.command:
+        cmd: podman rmi registry.access.redhat.com/ubi10/ubi-init
+      register: r_rmi_init
+      changed_when: true
+      ignore_errors: true
+
+    - name: Run hello world container (first run)
+      ansible.builtin.command:
+        cmd: podman run registry.access.redhat.com/ubi10/ubi echo "hello world"
+      register: r_run1
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run hello world container (second run)
+      ansible.builtin.command:
+        cmd: podman run registry.access.redhat.com/ubi10/ubi echo "hello world"
+      register: r_run2
+      changed_when: false
+      ignore_errors: true
+
+    - name: Remove all stopped containers
+      ansible.builtin.command:
+        cmd: podman rm --all
+      register: r_rm_all
+      changed_when: true
+      ignore_errors: true
+
+
+    - name: Collect post-state for report
+      ansible.builtin.command:
+        argv:
+          - podman
+          - images
+          - "--format"
+          - "{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}"
+      register: r_images_final
+      changed_when: false
+      ignore_errors: true
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script     : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          podman info          : {{ 'ok' if r_podman_info.rc == 0 else 'NOT ok' }}
+          ubi:latest pulled    : {{ 'ok' if r_pull_ubi.rc == 0 else 'NOT ok' }}
+          ubi-minimal pulled   : {{ 'ok' if r_pull_minimal.rc == 0 else 'NOT ok' }}
+          ubi-init pulled      : {{ 'ok' if r_pull_init.rc == 0 else 'NOT ok' }}
+          myfavorite tagged    : {{ 'ok' if r_tag.rc == 0 else 'NOT ok' }}
+          ubi-init removed     : {{ 'ok' if r_rmi_init.rc == 0 else 'NOT ok' }}
+          hello world run 1    : {{ 'ok' if 'hello world' in r_run1.stdout else 'NOT ok' }}
+          hello world run 2    : {{ 'ok' if 'hello world' in r_run2.stdout else 'NOT ok' }}
+          containers removed   : {{ 'ok' if r_rm_all.rc == 0 else 'NOT ok' }}
+          ubi:latest in images : {{ 'ok' if 'ubi10/ubi' in r_images_final.stdout else 'NOT ok' }}
+          myfavorite in images : {{ 'ok' if 'myfavorite' in r_images_final.stdout else 'NOT ok' }}
+          ubi-init absent      : {{ 'ok' if 'ubi-init' not in r_images_final.stdout else 'NOT ok (still present)' }}

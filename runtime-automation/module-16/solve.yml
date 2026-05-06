@@ -1,0 +1,79 @@
+---
+- name: RHEL Lightspeed pt.2 — Intermediate Solve
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+
+    - name: Run workshop-lightspeed-checkhost.sh
+      ansible.builtin.command: workshop-lightspeed-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    # SKIP: intentional systemctl start httpd failure (pre-fix) — teaching step only
+    # SKIP: CLA query blocks (blocks 05, 08-cla-query, 14-cla-query) — AI non-deterministic
+
+    # THE KEY FIX: replace broken ServerRoot /etc/httpdd with correct /etc/httpd
+    - name: Fix broken ServerRoot in /etc/httpd/conf/httpd.conf
+      ansible.builtin.replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '/etc/httpdd'
+        replace: '/etc/httpd'
+      register: r_fix_httpd
+      ignore_errors: true
+
+    - name: Start httpd after config fix
+      ansible.builtin.systemd:
+        name: httpd
+        state: started
+      register: r_httpd_start
+      ignore_errors: true
+
+    - name: Create /root/webdevs.txt with bob, susan, francis
+      ansible.builtin.copy:
+        dest: /root/webdevs.txt
+        content: "bob\nsusan\nfrancis\n"
+        owner: root
+        group: root
+        mode: "0644"
+      register: r_webdevs
+      ignore_errors: true
+
+    # Simulating AI-generated script outcome: create users in apache group
+    - name: Create user bob in apache group
+      ansible.builtin.user:
+        name: bob
+        groups: apache
+        append: true
+        state: present
+      ignore_errors: true
+
+    - name: Create user susan in apache group
+      ansible.builtin.user:
+        name: susan
+        groups: apache
+        append: true
+        state: present
+      ignore_errors: true
+
+    - name: Create user francis in apache group
+      ansible.builtin.user:
+        name: francis
+        groups: apache
+        append: true
+        state: present
+      ignore_errors: true
+
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script  : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          httpd.conf fix    : {{ 'ok' if r_fix_httpd is not failed else 'NOT ok' }}
+          httpd started     : {{ 'ok' if r_httpd_start is not failed else 'NOT ok' }}
+          webdevs.txt       : {{ 'ok' if r_webdevs is not failed else 'NOT ok' }}

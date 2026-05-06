@@ -1,0 +1,114 @@
+---
+- name: Net Filter (nftables) Validation
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — nftables service is stopped, disabled, and masked
+    # -------------------------------------------------------
+    - name: Query nftables service state
+      ansible.builtin.shell: |
+        systemctl is-active nftables
+        echo "EXIT_ACTIVE:$?"
+        systemctl is-enabled nftables
+        echo "EXIT_ENABLED:$?"
+      register: r_nftables
+      failed_when: false
+      changed_when: false
+
+    - name: Query nftables masked state
+      ansible.builtin.command: systemctl show nftables --property=UnitFileState
+      register: r_nftables_masked
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Check 2 — firewalld service is running, enabled, and unmasked
+    # -------------------------------------------------------
+    - name: Query firewalld service state
+      ansible.builtin.shell: |
+        systemctl is-active firewalld
+        echo "EXIT_ACTIVE:$?"
+        systemctl is-enabled firewalld
+        echo "EXIT_ENABLED:$?"
+      register: r_firewalld
+      failed_when: false
+      changed_when: false
+
+    - name: Query firewalld masked state
+      ansible.builtin.command: systemctl show firewalld --property=UnitFileState
+      register: r_firewalld_masked
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Check 3 — table inet workshop does NOT exist (cleanup done)
+    # -------------------------------------------------------
+    - name: Check that inet workshop table is absent
+      ansible.builtin.command: nft list tables
+      register: r_nft_tables
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Check 4 — firewall-cmd --list-all returns rc 0 with public zone active
+    # Handles both 'public (active)' and 'public (default, active)' output formats
+    # -------------------------------------------------------
+    - name: Run firewall-cmd --list-all to confirm firewalld is operational
+      ansible.builtin.command: firewall-cmd --list-all
+      register: r_firewall_cmd
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Build result booleans
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        # nftables must NOT be active and must be masked
+        _task1_nftables_inactive: "{{ 'active' not in (r_nftables.stdout_lines | select('match', '^active$') | list) }}"
+        _task1_nftables_masked: "{{ 'masked' in (r_nftables_masked.stdout | default('')) }}"
+        # firewalld must be active and enabled and NOT masked
+        _task2_firewalld_active: "{{ 'active' in (r_firewalld.stdout_lines | default([]) | join(' ')) }}"
+        _task2_firewalld_enabled: "{{ 'enabled' in (r_firewalld.stdout_lines | default([]) | join(' ')) }}"
+        _task2_firewalld_not_masked: "{{ 'masked' not in (r_firewalld_masked.stdout | default('')) }}"
+        # workshop table must be absent
+        _task3_workshop_absent: "{{ 'inet workshop' not in (r_nft_tables.stdout | default('')) }}"
+        # firewall-cmd must return rc 0 and report the public zone as active
+        # Matches both 'public (active)' and 'public (default, active)' output formats
+        _task4_firewalld_cmd_ok: "{{ r_firewall_cmd.rc | int == 0 and 'public' in (r_firewall_cmd.stdout | default('')) and 'active' in (r_firewall_cmd.stdout | default('')) }}"
+
+    - name: Derive composite task pass/fail
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ _task1_nftables_inactive | bool and _task1_nftables_masked | bool }}"
+        _task2_ok: "{{ _task2_firewalld_active | bool and _task2_firewalld_enabled | bool and _task2_firewalld_not_masked | bool }}"
+        _task3_ok: "{{ _task3_workshop_absent | bool }}"
+        _task4_ok: "{{ _task4_firewalld_cmd_ok | bool }}"
+
+    # -------------------------------------------------------
+    # Validate
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: nftables is stopped and masked' if _task1_ok | bool else 'Task 1: FAILED — nftables is still active or not masked. Run: systemctl disable nftables --now && systemctl mask nftables' }}
+          {{ 'Task 2: firewalld is running, enabled, and unmasked' if _task2_ok | bool else 'Task 2: FAILED — firewalld is not active/enabled or is still masked. Run: systemctl unmask firewalld && systemctl enable firewalld --now' }}
+          {{ 'Task 3: inet workshop table is absent' if _task3_ok | bool else 'Task 3: FAILED — inet workshop table still exists. Run: nft flush table inet workshop && nft delete table inet workshop' }}
+          {{ 'Task 4: firewall-cmd reports public zone active' if _task4_ok | bool else 'Task 4: FAILED — firewall-cmd --list-all did not report public zone as active. Ensure firewalld is running and the default zone is public.' }}
+      when: not (_task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: nftables is stopped and masked
+          Task 2: firewalld is running, enabled, and unmasked
+          Task 3: inet workshop table has been deleted (cleanup complete)
+          Task 4: firewall-cmd --list-all reports public zone active
+      when: _task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool

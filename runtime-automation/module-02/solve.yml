@@ -1,0 +1,73 @@
+---
+- name: Service Management (systemd) — Fundamental Solve
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+
+    - name: Run workshop-systemd-checkhost.sh
+      ansible.builtin.command:
+        cmd: workshop-systemd-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    - name: Install httpd, mariadb-server, mariadb, php
+      ansible.builtin.dnf:
+        name:
+          - httpd
+          - mariadb-server
+          - mariadb
+          - php
+        state: present
+      register: r_install
+      ignore_errors: true
+
+    - name: Fix httpd ServerRoot typo in httpd.conf (node2 lab breakage)
+      ansible.builtin.replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '^ServerRoot "/etc/httpdd"'
+        replace: 'ServerRoot "/etc/httpd"'
+      register: r_serverroot_fix
+      ignore_errors: true
+
+    - name: Enable and start httpd
+      ansible.builtin.systemd:
+        name: httpd
+        enabled: true
+        state: started
+      register: r_httpd
+      ignore_errors: true
+
+    - name: Enable and start mariadb
+      ansible.builtin.systemd:
+        name: mariadb
+        enabled: true
+        state: started
+      register: r_mariadb
+      ignore_errors: true
+
+    - name: Open http service in firewall (runtime-only, no --permanent per lab)
+      ansible.posix.firewalld:
+        service: http
+        zone: public
+        state: enabled
+        immediate: true
+        permanent: false
+      register: r_firewall
+      ignore_errors: true
+
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script  : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok (rc=' + (r_checkhost.rc | string) + ')' }}
+          packages installed: {{ 'ok' if r_install is not failed else 'NOT ok' }}
+          httpd.conf fixed  : {{ 'fixed' if r_serverroot_fix.changed else 'no change needed' }}
+          httpd started     : {{ 'ok' if r_httpd is not failed else 'NOT ok' }}
+          mariadb started   : {{ 'ok' if r_mariadb is not failed else 'NOT ok' }}
+          firewall http open: {{ 'ok' if r_firewall is not failed else 'NOT ok' }}

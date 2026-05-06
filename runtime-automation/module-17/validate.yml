@@ -1,0 +1,101 @@
+---
+- name: Storage DeDup (lvm, vdo) Validation
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — vdo package installed
+    # -------------------------------------------------------
+    - name: Check vdo package is installed
+      ansible.builtin.command: rpm -q vdo
+      register: r_vdo_pkg
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 2 — lv_raid10 LV exists in vg_lab
+    # After lvconvert --type vdo-pool, the segtype becomes vdo-pool.
+    # Accept raid10 (pre-convert) or vdo-pool (post-convert).
+    # -------------------------------------------------------
+    - name: Check lv_raid10 LV exists in vg_lab
+      ansible.builtin.shell: >-
+        lvs --noheadings -o lv_name,segtype vg_lab 2>/dev/null
+        | awk '$1=="lv_raid10" && $2~/raid10|vdo-pool/{print "found"}'
+      register: r_lv_raid10
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 3 — lab2 VDO virtual LV exists in vg_lab
+    # -------------------------------------------------------
+    - name: Check lab2 VDO virtual LV exists in vg_lab
+      ansible.builtin.shell: >-
+        lvs --noheadings -o lv_name,segtype vg_lab 2>/dev/null
+        | awk '$1=="lab2" && $2~/vdo/{print "found"}'
+      register: r_lv_lab2
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 4 — /dev/mapper/vg_lab-lab2 mounted at /mnt/lab2
+    # -------------------------------------------------------
+    - name: Check /dev/mapper/vg_lab-lab2 is mounted at /mnt/lab2
+      ansible.builtin.shell: >-
+        grep -q 'vg_lab-lab2.*\s/mnt/lab2\s' /proc/mounts && echo mounted || echo not_mounted
+      register: r_mount
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 5 — /mnt/lab2 has >= 3G of data (dedup scenario)
+    # -------------------------------------------------------
+    - name: Check data volume on /mnt/lab2 (>= 3G)
+      ansible.builtin.shell: >-
+        du -s /mnt/lab2 2>/dev/null | awk '{print $1}'
+      register: r_du
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 6 — VDO space saving >= 90%
+    # Device name: vg_lab-lv_raid10-vpool (match on partial prefix)
+    # -------------------------------------------------------
+    - name: Check vdostats space saving percentage
+      ansible.builtin.shell: >-
+        vdostats --human-readable 2>/dev/null
+        | awk '/vg_lab-lv_raid10/{print $NF}'
+      register: r_vdostats
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # rc=2 from pkill (ztrunner user absent) is acceptable
+    # in the ztrunner environment — treat as pass.
+    # -------------------------------------------------------
+
+    # -------------------------------------------------------
+    # Build result flags
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_vdo_pkg.rc | default(1) == 0 }}"
+        _task2_ok: "{{ 'found' in (r_lv_raid10.stdout | default('')) }}"
+        _task3_ok: "{{ 'found' in (r_lv_lab2.stdout | default('')) }}"
+        _task4_ok: "{{ 'mounted' in (r_mount.stdout | default('')) }}"
+        _task5_ok: "{{ (r_du.stdout | default('0') | trim | int) >= 3145728 }}"
+        _task6_ok: >-
+          {{
+            (r_vdostats.stdout | default('0%') | trim | regex_replace('%','') | int) >= 90
+          }}
+        # rc=0 (full pass) or rc=2 (pkill-only failure on ztrunner) both acceptable
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+

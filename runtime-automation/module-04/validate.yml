@@ -1,0 +1,96 @@
+---
+- name: Firewall Management pt.1 (firewalld) — Validation
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    firewalld_zone: public
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — firewalld service is active
+    # -------------------------------------------------------
+    - name: Check firewalld service is active
+      ansible.builtin.command: systemctl is-active firewalld
+      register: r_firewalld_active
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 2 — runtime services in public zone
+    # -------------------------------------------------------
+    - name: Query public zone runtime services
+      ansible.builtin.command: firewall-cmd --list-services --zone={{ firewalld_zone }}
+      register: r_runtime_services
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 3 — permanent services in public zone
+    # -------------------------------------------------------
+    - name: Query public zone permanent services
+      ansible.builtin.command: firewall-cmd --list-services --zone={{ firewalld_zone }} --permanent
+      register: r_permanent_services
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Build individual task results
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        # Task 1 — firewalld running
+        _task1_ok: "{{ r_firewalld_active.stdout | default('') | trim == 'active' }}"
+
+        # Task 2 — http and https present in runtime
+        _task2_http_ok: "{{ 'http' in (r_runtime_services.stdout | default('') ).split() }}"
+        _task2_https_ok: "{{ 'https' in (r_runtime_services.stdout | default('') ).split() }}"
+
+        # Task 3 — http and https present in permanent
+        _task3_http_ok: "{{ 'http' in (r_permanent_services.stdout | default('') ).split() }}"
+        _task3_https_ok: "{{ 'https' in (r_permanent_services.stdout | default('') ).split() }}"
+
+        # Task 4 — dhcpv6-client absent from both runtime and permanent
+        _task4_runtime_ok: "{{ 'dhcpv6-client' not in (r_runtime_services.stdout | default('') ).split() }}"
+        _task4_permanent_ok: "{{ 'dhcpv6-client' not in (r_permanent_services.stdout | default('') ).split() }}"
+
+        # Task 5 — cockpit and ssh still present in both runtime and permanent
+        _task5_cockpit_runtime_ok: "{{ 'cockpit' in (r_runtime_services.stdout | default('') ).split() }}"
+        _task5_ssh_runtime_ok: "{{ 'ssh' in (r_runtime_services.stdout | default('') ).split() }}"
+        _task5_cockpit_permanent_ok: "{{ 'cockpit' in (r_permanent_services.stdout | default('') ).split() }}"
+        _task5_ssh_permanent_ok: "{{ 'ssh' in (r_permanent_services.stdout | default('') ).split() }}"
+
+    - name: Derive rolled-up task booleans
+      ansible.builtin.set_fact:
+        _task2_ok: "{{ _task2_http_ok | bool and _task2_https_ok | bool }}"
+        _task3_ok: "{{ _task3_http_ok | bool and _task3_https_ok | bool }}"
+        _task4_ok: "{{ _task4_runtime_ok | bool and _task4_permanent_ok | bool }}"
+        _task5_ok: "{{ _task5_cockpit_runtime_ok | bool and _task5_ssh_runtime_ok | bool and _task5_cockpit_permanent_ok | bool and _task5_ssh_permanent_ok | bool }}"
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: firewalld service is active' if _task1_ok | bool else 'Task 1: FAILED — firewalld is not running; run: systemctl start firewalld' }}
+          {{ 'Task 2: http and https present in runtime config' if _task2_ok | bool else 'Task 2: FAILED — ' + ('' if _task2_http_ok | bool else 'http missing in runtime; ') + ('' if _task2_https_ok | bool else 'https missing in runtime; ') + 'run: firewall-cmd --add-service={http,https}' }}
+          {{ 'Task 3: http and https present in permanent config' if _task3_ok | bool else 'Task 3: FAILED — ' + ('' if _task3_http_ok | bool else 'http missing in permanent; ') + ('' if _task3_https_ok | bool else 'https missing in permanent; ') + 'run: firewall-cmd --runtime-to-permanent' }}
+          {{ 'Task 4: dhcpv6-client absent from runtime and permanent' if _task4_ok | bool else 'Task 4: FAILED — dhcpv6-client still present; run: firewall-cmd --remove-service=dhcpv6-client --permanent --immediate' }}
+          {{ 'Task 5: cockpit and ssh still present' if _task5_ok | bool else 'Task 5: FAILED — cockpit or ssh was accidentally removed; run Solve to restore default services' }}
+      when: not (_task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool and _task5_ok | bool)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: firewalld service is active
+          Task 2: http and https are present in the public zone runtime config
+          Task 3: http and https are present in the public zone permanent config
+          Task 4: dhcpv6-client is absent from both runtime and permanent config
+          Task 5: cockpit and ssh are still present in both runtime and permanent config
+      when: _task1_ok | bool and _task2_ok | bool and _task3_ok | bool and _task4_ok | bool and _task5_ok | bool

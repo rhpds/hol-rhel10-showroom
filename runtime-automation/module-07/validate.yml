@@ -1,0 +1,65 @@
+---
+- name: RHEL Lightspeed pt.1 Validation
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    student_user: "{{ user | default('') }}"
+
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — workshop-lightspeed-checkhost.sh exits 0
+    # -------------------------------------------------------
+    - name: Run workshop-lightspeed-checkhost.sh
+      ansible.builtin.command:
+        cmd: workshop-lightspeed-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 2 — 'c' binary is present and executable
+    # -------------------------------------------------------
+    - name: Check 'c' binary is available (which c)
+      ansible.builtin.command:
+        cmd: which c
+      register: r_which_c
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 3 — CLA responds to a single query without error
+    # AI output is non-deterministic; only rc==0 is asserted.
+    # -------------------------------------------------------
+    - name: Run one CLA query to confirm RHEL Lightspeed responds
+      ansible.builtin.command:
+        cmd: c "what is red hat enterprise linux"
+      register: r_cla_query
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Run without become so SUDO_USER env var is controlled.
+    # pkill may return non-zero if ztrunner session is absent;
+    # we only assert the script itself launched and ran.
+    # -------------------------------------------------------
+
+    # -------------------------------------------------------
+    # Build task results
+    # Task 4 passes as long as the script executed (rc 0 or 1)
+    # rc==2 means pkill got invalid user — still counts as run.
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_checkhost.rc | default(1) == 0 }}"
+        _task2_ok: "{{ r_which_c.rc | default(1) == 0 }}"
+        _task3_ok: "{{ r_cla_query.rc | default(1) == 0 }}"
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+

@@ -1,0 +1,192 @@
+---
+- name: Bootable Containers (image mode, bootc) — Intermediate Solve
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    bootc_image: localhost/custom-bootc
+    ocifile: /usr/local/etc/sample-rhel-bootc.ocifile
+    sample_toml: /usr/local/etc/sample-bootc.toml
+    custom_toml: /root/custom-bootc.toml
+    qcow2_src: /root/qcow2/disk.qcow2
+    qcow2_dest: /var/lib/libvirt/images/bootc-vm.qcow2
+    vm_name: bootc-vm
+
+  tasks:
+
+    - name: Run workshop-imagemode-checkhost.sh
+      ansible.builtin.command: workshop-imagemode-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      failed_when: r_checkhost.rc != 0
+
+    - name: Stat pre-staged OCI file
+      ansible.builtin.stat:
+        path: "{{ ocifile }}"
+      register: r_ocifile
+
+    - name: Assert OCI file is present
+      ansible.builtin.assert:
+        that: r_ocifile.stat.exists
+        fail_msg: "Pre-staged file {{ ocifile }} not found — check hol_rhel10_automation collection setup"
+
+    - name: Stat pre-staged TOML template
+      ansible.builtin.stat:
+        path: "{{ sample_toml }}"
+      register: r_sample_toml
+
+    - name: Assert sample TOML template is present
+      ansible.builtin.assert:
+        that: r_sample_toml.stat.exists
+        fail_msg: "Pre-staged file {{ sample_toml }} not found — check hol_rhel10_automation collection setup"
+
+    # Build image with idempotency guard (skip if already exists)
+    # block/rescue retries once on first failure (transient registry/network issue)
+    - block:
+        - name: Build localhost/custom-bootc image (skip if already present)
+          ansible.builtin.shell: |
+            podman images --quiet localhost/custom-bootc | grep -q . || \
+              podman build --file {{ ocifile }} --tag localhost/custom-bootc
+          args:
+            executable: /bin/bash
+          register: r_podman_build
+          async: 600
+          poll: 15
+          changed_when: "'Successfully tagged' in r_podman_build.stdout"
+
+      rescue:
+        - name: Pause 30s before retrying build
+          ansible.builtin.pause:
+            seconds: 30
+
+        - name: Retry — build localhost/custom-bootc image
+          ansible.builtin.shell: |
+            podman images --quiet localhost/custom-bootc | grep -q . || \
+              podman build --file {{ ocifile }} --tag localhost/custom-bootc
+          args:
+            executable: /bin/bash
+          register: r_podman_build
+          async: 600
+          poll: 15
+          changed_when: "'Successfully tagged' in r_podman_build.stdout"
+
+    - name: Ensure /root/.ssh directory exists
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        mode: "0700"
+
+    - name: Generate root SSH keypair if absent
+      ansible.builtin.command: ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -N ""
+      args:
+        creates: /root/.ssh/id_rsa
+
+    - name: Read root SSH public key
+      ansible.builtin.slurp:
+        src: /root/.ssh/id_rsa.pub
+      register: ssh_pubkey_slurp
+
+    - name: Set ssh_key fact
+      ansible.builtin.set_fact:
+        ssh_key_fact: "{{ ssh_pubkey_slurp.content | b64decode | trim }}"
+
+    - name: Generate /root/custom-bootc.toml with SSH key substituted
+      ansible.builtin.shell: |
+        set -euo pipefail
+        sed -e "s|SSHKEY|{{ ssh_key_fact }}|" \
+          {{ sample_toml }} > {{ custom_toml }}
+      args:
+        executable: /bin/bash
+      register: r_toml_write
+      changed_when: true
+
+    # Build QCOW2 image with idempotency guard (skip if already exists)
+    - name: Build QCOW2 disk image via bootc-image-builder (skip if exists)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd /root
+        podman run --rm --privileged \
+          --security-opt label=type:unconfined_t \
+          --volume .:/output \
+          --volume ./custom-bootc.toml:/config.toml \
+          --volume /var/lib/containers/storage:/var/lib/containers/storage \
+          quay.io/redhat-gpte/rhel10/bootc-image-builder \
+          --type qcow2 --local --rootfs ext4 localhost/custom-bootc
+      args:
+        executable: /bin/bash
+        creates: "{{ qcow2_src }}"
+      register: r_bib
+      async: 600
+      poll: 15
+      ignore_errors: false
+
+    - name: Copy disk.qcow2 to /var/lib/libvirt/images/bootc-vm.qcow2
+      ansible.builtin.copy:
+        src: "{{ qcow2_src }}"
+        dest: "{{ qcow2_dest }}"
+        remote_src: true
+        mode: "0644"
+
+    # Create VM with idempotency guard
+    - name: Create bootc-vm via virt-install (skip if domain already defined)
+      ansible.builtin.shell: |
+        set -euo pipefail
+        virsh list --all | grep -q bootc-vm || \
+          virt-install \
+            --import \
+            --name bootc-vm \
+            --memory 2048 \
+            --cpu host \
+            --vcpus 1 \
+            --graphics vnc \
+            --noautoconsole \
+            --os-variant rhel9.0 \
+            --disk {{ qcow2_dest }}
+      args:
+        executable: /bin/bash
+      register: r_virt_install
+      changed_when: "'Domain creation completed' in r_virt_install.stdout"
+      ignore_errors: false
+
+    - name: Wait for bootc-vm to obtain an IP address (up to 5 min)
+      ansible.builtin.shell: |
+        virsh domifaddr bootc-vm | sed -e '1,2d' -e '$d' | awk '{ split($4,a,/\//); print a[1] }'
+      args:
+        executable: /bin/bash
+      register: vm_ip_result
+      until: vm_ip_result.stdout | trim | length > 5
+      retries: 30
+      delay: 10
+      changed_when: false
+
+    - name: Wait for HTTP service on bootc-vm to respond with SUCCESS
+      ansible.builtin.uri:
+        url: "http://{{ vm_ip_result.stdout | trim }}"
+        return_content: true
+        validate_certs: false
+        timeout: 10
+        status_code: [200]
+      register: r_http
+      until:
+        - r_http.status == 200
+        - "'SUCCESS' in r_http.content"
+      retries: 20
+      delay: 10
+      ignore_errors: true
+
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script    : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          OCI file present    : {{ 'ok' if r_ocifile.stat.exists else 'NOT ok' }}
+          sample TOML present : {{ 'ok' if r_sample_toml.stat.exists else 'NOT ok' }}
+          custom-bootc image  : {{ 'ok' if r_podman_build.rc | default(1) == 0 else 'NOT ok' }}
+          custom-bootc.toml   : {{ 'ok' if r_toml_write.rc | default(1) == 0 else 'NOT ok' }}
+          qcow2 build         : ok (check creates: guard)
+          bootc-vm running    : {{ 'ok' if r_virt_install.rc | default(0) == 0 else 'NOT ok' }}
+          VM IP               : {{ vm_ip_result.stdout | default('(none)') | trim }}
+          HTTP SUCCESS        : {{ 'ok' if r_http.status | default(0) == 200 and 'SUCCESS' in (r_http.content | default('')) else 'NOT ok' }}

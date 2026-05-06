@@ -13,11 +13,13 @@
   //   role="execute send-to-wetty"
 
   function initSendTo() {
+    // Find all elements whose class list contains a class starting with 'send-to-'
     document.querySelectorAll('[class*="send-to-"]').forEach(function (block) {
       if (block.dataset.sendToButtonAdded) return;
       var listingBlock = block.closest('.listingblock');
       if (!listingBlock) return;
 
+      // Extract the target path from the class name e.g. 'send-to-wetty' → '/wetty'
       var targetClass = Array.from(block.classList).find(function (c) { return /^send-to-.+/.test(c); });
       if (!targetClass) return;
       var targetPath = '/' + targetClass.replace('send-to-', '');
@@ -54,6 +56,8 @@
       return;
     }
 
+    // Inject execute-listener into terminal if not already done
+    // Only inject for /terminal, not for /wetty (which has native support)
     if (targetPath === '/terminal') {
       ensureTerminalListener(frame);
     }

@@ -1,0 +1,84 @@
+---
+- name: Containers pt.1 (podman) Validation
+  hosts: node3
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — podman is installed and operational
+    # -------------------------------------------------------
+    - name: Check podman info
+      ansible.builtin.command:
+        cmd: podman info
+      register: r_podman_info
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 2-5 — list images and containers
+    # -------------------------------------------------------
+    - name: List all images (repository:tag format)
+      ansible.builtin.command:
+        argv:
+          - podman
+          - images
+          - "--format"
+          - "{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}"
+      register: r_images
+      changed_when: false
+      failed_when: false
+
+    - name: List all containers
+      ansible.builtin.command:
+        argv:
+          - podman
+          - ps
+          - "-a"
+          - "--format"
+          - "{% raw %}{{.Names}}{% endraw %}"
+      register: r_containers
+      changed_when: false
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Build results
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: "{{ r_podman_info.rc | default(1) == 0 }}"
+        _task2_ok: "{{ 'ubi10/ubi' in (r_images.stdout | default('')) }}"
+        _task3_ok: "{{ 'ubi10/ubi-minimal' in (r_images.stdout | default('')) }}"
+        _task4_ok: "{{ 'ubi10/ubi-init' not in (r_images.stdout | default('')) }}"
+        _task5_ok: "{{ 'myfavorite' in (r_images.stdout | default('')) }}"
+        _task6_ok: "{{ (r_containers.stdout | default('') | trim) == '' }}"
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ 'Task 1: podman operational' if _task1_ok else 'Task 1: FAILED — podman info returned non-zero; verify podman is installed on node3' }}
+          {{ 'Task 2: ubi10/ubi:latest present' if _task2_ok else 'Task 2: FAILED — ubi10/ubi:latest not found; run: podman pull registry.access.redhat.com/ubi10/ubi:latest' }}
+          {{ 'Task 3: ubi10/ubi-minimal:latest present' if _task3_ok else 'Task 3: FAILED — ubi10/ubi-minimal:latest not found; run: podman pull registry.access.redhat.com/ubi10/ubi-minimal' }}
+          {{ 'Task 4: ubi10/ubi-init removed' if _task4_ok else 'Task 4: FAILED — ubi10/ubi-init still present; run: podman rmi registry.access.redhat.com/ubi10/ubi-init' }}
+          {{ 'Task 5: localhost/myfavorite:latest present' if _task5_ok else 'Task 5: FAILED — myfavorite tag not found; run: podman tag registry.access.redhat.com/ubi10/ubi myfavorite' }}
+          {{ 'Task 6: no containers present' if _task6_ok else 'Task 6: FAILED — stopped containers still exist; run: podman rm --all' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok and _task6_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: podman is installed and operational
+          Task 2: ubi10/ubi:latest image is present
+          Task 3: ubi10/ubi-minimal:latest image is present
+          Task 4: ubi10/ubi-init:latest image has been removed
+          Task 5: localhost/myfavorite:latest tag is present
+          Task 6: all containers have been removed
+      when: _task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok and _task6_ok

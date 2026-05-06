@@ -1,14 +1,75 @@
 ---
-# Module 01 — Solve (stub)
-# TODO: implement solve tasks for this module.
-
-- name: Solve Module 01
-  hosts: bastion
+- name: Package Management (dnf) — Fundamental Solve
+  hosts: node1
   gather_facts: false
   become: true
   vars:
-    ansible_user: "{{ bastion_user | default('lab-user') }}"
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
   tasks:
-    - name: Stub — no solve tasks yet
+
+    - name: Run workshop-dnf-checkhost.sh to verify target host
+      ansible.builtin.command:
+        cmd: workshop-dnf-checkhost.sh
+      register: r_checkhost
+      changed_when: false
+      ignore_errors: true
+
+    - name: Install bash-completion
+      ansible.builtin.dnf:
+        name: bash-completion
+        state: present
+      register: r_bash_completion
+      ignore_errors: true
+
+    - name: Install httpd, mariadb, mariadb-server, php (LAMP stack)
+      ansible.builtin.dnf:
+        name:
+          - httpd
+          - mariadb
+          - mariadb-server
+          - php
+        state: present
+      register: r_lamp_install
+      ignore_errors: true
+
+    - name: Remove php
+      ansible.builtin.dnf:
+        name: php
+        state: absent
+      register: r_php_remove
+      ignore_errors: true
+
+    - name: Run dnf upgrade dry-run (tsflags=test — no real changes)
+      ansible.builtin.command:
+        cmd: dnf upgrade -y --setopt tsflags=test
+      register: r_upgrade_test
+      changed_when: false
+      ignore_errors: true
+
+    - name: Run dnf upgrade --security
+      ansible.builtin.command:
+        cmd: dnf upgrade -y --security
+      register: r_upgrade_security
+      changed_when: "'Nothing to do' not in r_upgrade_security.stdout"
+      ignore_errors: true
+
+    - name: Run dnf clean all
+      ansible.builtin.command:
+        cmd: dnf clean all
+      register: r_clean
+      changed_when: true
+      ignore_errors: true
+
+
+    - name: Report solve status
       ansible.builtin.debug:
-        msg: "Solve stub — implement tasks here"
+        msg: |
+          checkhost script       : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok (rc=' + (r_checkhost.rc | string) + ')' }}
+          bash-completion install: {{ 'ok' if r_bash_completion is not failed else 'NOT ok' }}
+          LAMP stack install     : {{ 'ok' if r_lamp_install is not failed else 'NOT ok' }}
+          php removed            : {{ 'ok' if r_php_remove is not failed else 'NOT ok' }}
+          dnf upgrade --test     : {{ 'ok' if r_upgrade_test.rc == 0 else 'NOT ok (rc=' + (r_upgrade_test.rc | string) + ')' }}
+          dnf upgrade --security : {{ 'ok' if r_upgrade_security.rc == 0 else 'NOT ok (rc=' + (r_upgrade_security.rc | string) + ')' }}
+          dnf clean all          : {{ 'ok' if r_clean.rc == 0 else 'NOT ok (rc=' + (r_clean.rc | string) + ')' }}

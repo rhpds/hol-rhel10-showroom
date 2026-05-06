@@ -1,0 +1,141 @@
+---
+- name: Storage Mgmt pt.1 (stratis) — Fundamental Solve
+  hosts: node2
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    pool_name: summitpool
+    fs_name: summitfs
+    mount_point: /summitdir
+    stratis_device: /dev/stratis/summitpool/summitfs
+    disk1: /dev/vdb
+    disk2: /dev/vdc
+
+  tasks:
+
+    - name: Install stratisd and stratis-cli
+      ansible.builtin.dnf:
+        name:
+          - stratisd
+          - stratis-cli
+        state: present
+
+    - name: Enable and start stratisd service
+      ansible.builtin.systemd:
+        name: stratisd
+        state: started
+        enabled: true
+
+    # Cleanup — ignore errors since pool/fs may not exist yet
+    - name: Unmount /mnt/lab* (cleanup)
+      ansible.builtin.shell: umount /mnt/lab* || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Unmount /summitdir (cleanup)
+      ansible.posix.mount:
+        path: "{{ mount_point }}"
+        state: unmounted
+      ignore_errors: true
+
+    - name: Destroy summitfs filesystem (cleanup)
+      ansible.builtin.shell: stratis fs destroy {{ pool_name }} {{ fs_name }} || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Destroy summitpool pool (cleanup)
+      ansible.builtin.shell: stratis pool destroy {{ pool_name }} || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Wipe filesystem signatures from data disks
+      ansible.builtin.shell: wipefs -a /dev/vdb /dev/vdc /dev/vdd /dev/vde || true
+      changed_when: false
+      ignore_errors: true
+
+    - name: Inform OS of partition table changes
+      ansible.builtin.shell: partprobe
+      changed_when: false
+      ignore_errors: true
+
+    # Create pool (idempotent guard)
+    - name: Create Stratis pool summitpool (idempotent)
+      ansible.builtin.shell: >
+        stratis pool list | grep -q {{ pool_name }} ||
+        stratis pool create {{ pool_name }} {{ disk1 }} {{ disk2 }}
+      register: r_pool_create
+      changed_when: "'summitpool' not in r_pool_create.stdout"
+      ignore_errors: true
+
+    # Create filesystem (idempotent guard)
+    - name: Create Stratis filesystem summitfs (idempotent)
+      ansible.builtin.shell: >
+        stratis fs list | grep -q {{ fs_name }} ||
+        stratis fs create {{ pool_name }} {{ fs_name }}
+      register: r_fs_create
+      changed_when: true
+      ignore_errors: true
+
+    - name: Create mount point /summitdir
+      ansible.builtin.file:
+        path: "{{ mount_point }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Mount Stratis filesystem at /summitdir
+      ansible.posix.mount:
+        src: "{{ stratis_device }}"
+        path: "{{ mount_point }}"
+        fstype: xfs
+        state: mounted
+      ignore_errors: true
+
+    - name: Get UUID of Stratis filesystem
+      ansible.builtin.shell: lsblk -n -o uuid {{ stratis_device }}
+      register: r_uuid
+      changed_when: false
+      ignore_errors: true
+
+    - name: Set stratis UUID fact
+      ansible.builtin.set_fact:
+        stratis_uuid: "{{ r_uuid.stdout | trim }}"
+      when: r_uuid.stdout | trim | length > 0
+
+    - name: Add /summitdir fstab entry with x-systemd.requires
+      ansible.builtin.blockinfile:
+        path: /etc/fstab
+        marker: "# {mark} ANSIBLE MANAGED BLOCK — stratis summitfs"
+        block: "UUID={{ stratis_uuid }} {{ mount_point }} xfs defaults,x-systemd.requires=stratisd.service 0 0"
+      when: stratis_uuid is defined and stratis_uuid | length > 0
+      ignore_errors: true
+
+    - name: Unmount /summitdir to test fstab round-trip
+      ansible.posix.mount:
+        path: "{{ mount_point }}"
+        state: unmounted
+      ignore_errors: true
+
+    - name: Mount /summitdir from fstab
+      ansible.builtin.shell: mount {{ mount_point }}
+      register: r_mount_fstab
+      changed_when: true
+      ignore_errors: true
+
+    - name: Reload systemd daemon after fstab modification
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          stratisd installed+running : ok
+          pool summitpool created    : {{ 'ok' if r_pool_create is not failed else 'NOT ok' }}
+          fs summitfs created        : {{ 'ok' if r_fs_create is not failed else 'NOT ok' }}
+          /summitdir mounted         : {{ 'ok' if r_mount_fstab.rc == 0 else 'NOT ok' }}
+          fstab UUID entry added     : {{ 'ok — UUID=' + stratis_uuid | default('unknown') }}

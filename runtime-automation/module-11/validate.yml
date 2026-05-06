@@ -1,0 +1,138 @@
+---
+- name: Firewall Management pt.2 (firewalld) Validation
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+  tasks:
+
+    # -------------------------------------------------------
+    # Check 1 — http.xml exists and contains port 8080
+    # -------------------------------------------------------
+    - name: Read /etc/firewalld/services/http.xml
+      ansible.builtin.command:
+        cmd: cat /etc/firewalld/services/http.xml
+      register: r_http_xml
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Check 2 — https.xml exists and contains port 8443
+    # -------------------------------------------------------
+    - name: Read /etc/firewalld/services/https.xml
+      ansible.builtin.command:
+        cmd: cat /etc/firewalld/services/https.xml
+      register: r_https_xml
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Check 3 — firewall-cmd --info-service=http shows 80/tcp AND 8080/tcp (runtime)
+    # -------------------------------------------------------
+    - name: Query runtime info for http service
+      ansible.builtin.command:
+        cmd: firewall-cmd --info-service=http
+      register: r_http_info
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Check 4 — firewall-cmd --info-service=https shows 443/tcp AND 8443/tcp (runtime)
+    # -------------------------------------------------------
+    - name: Query runtime info for https service
+      ansible.builtin.command:
+        cmd: firewall-cmd --info-service=https
+      register: r_https_info
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Check 5 — workshop.xml exists (imported permanently)
+    # -------------------------------------------------------
+    - name: Check /etc/firewalld/services/workshop.xml exists
+      ansible.builtin.stat:
+        path: /etc/firewalld/services/workshop.xml
+      register: r_workshop_xml
+      failed_when: false
+
+    # -------------------------------------------------------
+    # Check 6 — workshop service active in public zone (runtime)
+    # -------------------------------------------------------
+    - name: List active services in public zone (runtime)
+      ansible.builtin.command:
+        cmd: firewall-cmd --zone=public --list-services
+      register: r_public_services
+      failed_when: false
+      changed_when: false
+
+    # -------------------------------------------------------
+    # Build result booleans
+    # -------------------------------------------------------
+    - name: Build task results
+      ansible.builtin.set_fact:
+        _task1_ok: >-
+          {{
+            r_http_xml is not failed and
+            r_http_xml.rc | default(1) == 0 and
+            '8080' in (r_http_xml.stdout | default(''))
+          }}
+        _task2_ok: >-
+          {{
+            r_https_xml is not failed and
+            r_https_xml.rc | default(1) == 0 and
+            '8443' in (r_https_xml.stdout | default(''))
+          }}
+        _task3_ok: >-
+          {{
+            r_http_info is not failed and
+            r_http_info.rc | default(1) == 0 and
+            '80/tcp' in (r_http_info.stdout | default('')) and
+            '8080/tcp' in (r_http_info.stdout | default(''))
+          }}
+        _task4_ok: >-
+          {{
+            r_https_info is not failed and
+            r_https_info.rc | default(1) == 0 and
+            '443/tcp' in (r_https_info.stdout | default('')) and
+            '8443/tcp' in (r_https_info.stdout | default(''))
+          }}
+        _task5_ok: >-
+          {{
+            r_workshop_xml is not failed and
+            r_workshop_xml.stat.exists | default(false)
+          }}
+        _task6_ok: >-
+          {{
+            r_public_services is not failed and
+            r_public_services.rc | default(1) == 0 and
+            'workshop' in (r_public_services.stdout | default(''))
+          }}
+
+    # -------------------------------------------------------
+    # Validate all tasks
+    # -------------------------------------------------------
+    - name: Fail if any task check did not pass
+      ansible.builtin.fail:
+        msg: |
+          One or more validation checks FAILED:
+          {{ '[OK]' if _task1_ok else '[FAIL]' }} Task 1: http.xml with port 8080 — {{ 'found' if _task1_ok else 'MISSING — run workshop-firewalld-customconfigs.sh then reload firewalld' }}
+          {{ '[OK]' if _task2_ok else '[FAIL]' }} Task 2: https.xml with port 8443 — {{ 'found' if _task2_ok else 'MISSING — run workshop-firewalld-customconfigs.sh then reload firewalld' }}
+          {{ '[OK]' if _task3_ok else '[FAIL]' }} Task 3: http service has 80/tcp + 8080/tcp — {{ 'ok' if _task3_ok else 'MISSING — reload firewalld: systemctl reload firewalld' }}
+          {{ '[OK]' if _task4_ok else '[FAIL]' }} Task 4: https service has 443/tcp + 8443/tcp — {{ 'ok' if _task4_ok else 'MISSING — reload firewalld: systemctl reload firewalld' }}
+          {{ '[OK]' if _task5_ok else '[FAIL]' }} Task 5: workshop.xml permanent file — {{ 'found' if _task5_ok else 'MISSING — run: firewall-cmd --new-service-from-file=/usr/local/etc/firewalld-customname.xml --name=workshop --permanent' }}
+          {{ '[OK]' if _task6_ok else '[FAIL]' }} Task 6: workshop service in runtime public zone — {{ 'active' if _task6_ok else 'NOT active — run: firewall-cmd --zone=public --add-service=workshop (no --permanent)' }}
+      when: not (_task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok and _task6_ok)
+
+    - name: All validation checks passed
+      ansible.builtin.debug:
+        msg: |
+          Task 1: /etc/firewalld/services/http.xml exists and contains port 8080
+          Task 2: /etc/firewalld/services/https.xml exists and contains port 8443
+          Task 3: runtime http service reports both 80/tcp and 8080/tcp
+          Task 4: runtime https service reports both 443/tcp and 8443/tcp
+          Task 5: /etc/firewalld/services/workshop.xml imported permanently
+          Task 6: workshop service active in public zone (runtime)
+      when: _task1_ok and _task2_ok and _task3_ok and _task4_ok and _task5_ok and _task6_ok

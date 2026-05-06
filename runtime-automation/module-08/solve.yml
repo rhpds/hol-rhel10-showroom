@@ -1,0 +1,96 @@
+---
+- name: Package Management pt.2 (dnf) — Intermediate Solve
+  hosts: node1
+  gather_facts: false
+  become: true
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') | default('lab-user') }}"
+    ansible_ssh_pass: "{{ lookup('env', 'PASSWORD') | default('XRnsDtG3ZMbGPF1I') }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    epel_rpm_url: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm"
+
+  tasks:
+
+    - name: Run workshop-dnf-checkhost.sh sanity check
+      ansible.builtin.command: workshop-dnf-checkhost.sh
+      changed_when: false
+      register: r_checkhost
+      ignore_errors: true
+
+    - name: Install net-tools
+      ansible.builtin.dnf:
+        name: net-tools
+        state: present
+      register: r_net_tools
+      ignore_errors: true
+
+    - name: Add dnf alias ls=list
+      ansible.builtin.command: dnf alias add ls=list
+      register: r_alias_ls
+      changed_when: r_alias_ls.rc == 0
+      failed_when: false
+      ignore_errors: true
+
+    # %{installtime} etc are dnf format specifiers — NOT Jinja2 — safe to pass verbatim
+    - name: Add dnf alias li (repoquery --installed with custom format)
+      ansible.builtin.command: >-
+        dnf alias add
+        li='repoquery --installed --qf %{installtime}\t%{vendor}\t%{arch}\t%{name}-%{version}'
+      register: r_alias_li
+      changed_when: r_alias_li.rc == 0
+      failed_when: false
+      ignore_errors: true
+
+    - name: Add dnf alias la (repoquery --available with custom format)
+      ansible.builtin.command: >-
+        dnf alias add
+        la='repoquery --available --qf %{reponame}\t%{arch}\t%{name}-%{version}'
+      register: r_alias_la
+      changed_when: r_alias_la.rc == 0
+      failed_when: false
+      ignore_errors: true
+
+    - name: Delete dnf alias la
+      ansible.builtin.command: dnf alias delete la
+      register: r_alias_la_delete
+      changed_when: r_alias_la_delete.rc == 0
+      failed_when: false
+      ignore_errors: true
+
+    # tsflags=test means NO packages are actually installed — dry-run only
+    - name: Dry-run groupinstall RPM Development Tools (tsflags=test)
+      ansible.builtin.command: >-
+        dnf groupinstall "RPM Development Tools" -y --setopt tsflags=test
+      register: r_groupinstall
+      changed_when: false
+      failed_when: false
+      ignore_errors: true
+
+    - name: Install EPEL release package from URL
+      ansible.builtin.dnf:
+        name: "{{ epel_rpm_url }}"
+        state: present
+        disable_gpg_check: true
+      register: r_epel_install
+      ignore_errors: true
+
+    - name: Permanently disable EPEL repo with config-manager
+      ansible.builtin.command: dnf config-manager --set-disabled epel
+      register: r_epel_disable
+      changed_when: r_epel_disable.rc == 0
+      failed_when: false
+      ignore_errors: true
+
+
+    - name: Report solve status
+      ansible.builtin.debug:
+        msg: |
+          checkhost script     : {{ 'ok' if r_checkhost.rc == 0 else 'NOT ok' }}
+          net-tools installed  : {{ 'ok' if r_net_tools is not failed else 'NOT ok' }}
+          alias ls added       : {{ 'ok' if r_alias_ls.rc == 0 else 'NOT ok' }}
+          alias li added       : {{ 'ok' if r_alias_li.rc == 0 else 'NOT ok' }}
+          alias la added       : {{ 'ok' if r_alias_la.rc == 0 else 'NOT ok' }}
+          alias la deleted     : {{ 'ok' if r_alias_la_delete.rc == 0 else 'NOT ok' }}
+          groupinstall dry-run : {{ 'ok' if r_groupinstall.rc == 0 else 'NOT ok' }}
+          EPEL installed       : {{ 'ok' if r_epel_install is not failed else 'NOT ok' }}
+          EPEL disabled        : {{ 'ok' if r_epel_disable.rc == 0 else 'NOT ok' }}
