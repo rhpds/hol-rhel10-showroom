@@ -208,7 +208,7 @@ systemctl start httpd
 
 [{format_cmd}]
 ----
-systemctl status httpd
+systemctl status httpd --no-pager
 ----
 
 [{format_output}]
